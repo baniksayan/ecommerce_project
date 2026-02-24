@@ -1,5 +1,4 @@
 import 'package:device_preview/device_preview.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/responsive/media_query_helper.dart';
@@ -8,8 +7,10 @@ import 'views/home/home_view.dart';
 void main() {
   runApp(
     DevicePreview(
+
       enabled: true,
       // enabled: false,
+      
       builder: (context) => const EnchantedForestApp(),
     ),
   );
