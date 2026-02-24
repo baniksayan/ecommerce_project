@@ -8,7 +8,8 @@ import 'views/home/home_view.dart';
 void main() {
   runApp(
     DevicePreview(
-      enabled: !kReleaseMode,
+      // enabled: true,
+      enabled: false,
       builder: (context) => const EnchantedForestApp(),
     ),
   );
