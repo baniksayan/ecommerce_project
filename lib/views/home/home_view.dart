@@ -3,6 +3,7 @@ import 'home_widgets.dart';
 import '../../common/appbar/common_app_bar.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/searchbar/app_search_bar.dart';
+import '../../common/image_viewer/zoomable_image_viewer.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -14,6 +15,10 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   int _navIndex = 0;
 
+  // Simulate optional profile picture (Set to a URL string or null)
+  String? _profilePicUrl;
+  // e.g. 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100';
+
   // Dummy Data for demonstration
   final List<String> _carouselImages = [
     'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=800',
@@ -21,28 +26,83 @@ class _HomeViewState extends State<HomeView> {
     'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800',
   ];
 
+  Widget _buildProfileAvatar({double radius = 20, bool isDrawer = false}) {
+    final avatar = CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.grey[200],
+      backgroundImage: _profilePicUrl != null
+          ? NetworkImage(_profilePicUrl!)
+          : null,
+      child: _profilePicUrl == null
+          ? Icon(Icons.person, size: radius * 1.2, color: Colors.grey[600])
+          : null,
+    );
+
+    if (isDrawer && _profilePicUrl != null) {
+      return GestureDetector(
+        onTap: () {
+          ZoomableImageViewer.show(
+            context,
+            imageProvider: NetworkImage(_profilePicUrl!),
+            heroTag: 'profile_pic_zoom',
+          );
+        },
+        child: Hero(tag: 'profile_pic_zoom', child: avatar),
+      );
+    }
+
+    return avatar;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(
         title: 'Discover',
         showBackButton: false,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () {},
+        leading: Builder(
+          builder: (context) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: GestureDetector(
+              onTap: () {
+                Scaffold.of(context).openDrawer();
+              },
+              child: _buildProfileAvatar(radius: 20),
             ),
-            IconButton(
-              icon: const Icon(Icons.shopping_cart_outlined),
-              onPressed: () {},
+          ),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.shopping_cart_outlined),
+          onPressed: () {},
+        ),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: const Text('Jane Doe'),
+              accountEmail: const Text('jane.doe@example.com'),
+              currentAccountPicture: _buildProfileAvatar(
+                radius: 40,
+                isDrawer: true,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('My Profile'),
+              onTap: () {},
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              onTap: () {},
             ),
           ],
         ),
       ),
       body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -107,9 +167,9 @@ class _HomeViewState extends State<HomeView> {
 
             const SizedBox(height: 8),
 
-            // Flash Sale Section
+            // Trending Products Section
             EcommerceSectionTitle(
-              title: 'Flash Sale (01:23:45)',
+              title: 'Trending Products',
               actionText: 'See All',
               onActionTap: () {},
             ),
@@ -232,11 +292,6 @@ class _HomeViewState extends State<HomeView> {
             icon: Icons.receipt_long_outlined,
             activeIcon: Icons.receipt_long,
             label: 'Orders',
-          ),
-          CommonBottomBarItem(
-            icon: Icons.person_outline,
-            activeIcon: Icons.person,
-            label: 'Profile',
           ),
         ],
       ),

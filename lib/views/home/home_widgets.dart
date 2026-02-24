@@ -83,7 +83,14 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.92);
+    // Start at a high multiple of the length so user can immediately scroll backwards
+    final initialPage = widget.imageUrls.isNotEmpty
+        ? widget.imageUrls.length * 100
+        : 0;
+    _pageController = PageController(
+      viewportFraction: 0.92,
+      initialPage: initialPage,
+    );
   }
 
   @override
@@ -102,13 +109,15 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
-              setState(() => _currentIndex = index);
+              final realIndex = index % widget.imageUrls.length;
+              setState(() => _currentIndex = realIndex);
               if (widget.onPageChanged != null) {
-                widget.onPageChanged!(index);
+                widget.onPageChanged!(realIndex);
               }
             },
-            itemCount: widget.imageUrls.length,
+            // Removed itemCount to enable infinite scrolling
             itemBuilder: (context, index) {
+              final realIndex = index % widget.imageUrls.length;
               return AnimatedBuilder(
                 animation: _pageController,
                 builder: (context, child) {
@@ -132,7 +141,7 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       image: DecorationImage(
-                        image: NetworkImage(widget.imageUrls[index]),
+                        image: NetworkImage(widget.imageUrls[realIndex]),
                         fit: BoxFit.cover,
                       ),
                       boxShadow: [
@@ -235,7 +244,7 @@ class EcommerceCategoryRow extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      physics: const BouncingScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: categories.map((cat) {
@@ -471,7 +480,7 @@ class EcommerceHorizontalProductList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         itemCount: products.length,
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) => products[index],

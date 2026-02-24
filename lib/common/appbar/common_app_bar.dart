@@ -11,6 +11,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
   final VoidCallback? onBackPress;
   final Widget? trailing;
+  final Widget? leading;
 
   const CommonAppBar({
     Key? key,
@@ -19,6 +20,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBackButton = true,
     this.onBackPress,
     this.trailing,
+    this.leading,
   }) : super(key: key);
 
   @override
@@ -39,13 +41,15 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
         border: Border(
           bottom: BorderSide(color: theme.dividerColor, width: 0.5),
         ),
-        leading: showBack
-            ? CupertinoButton(
-                padding: EdgeInsets.zero,
-                child: Icon(CupertinoIcons.back, color: theme.primaryColor),
-                onPressed: onBackPress ?? () => Navigator.of(context).pop(),
-              )
-            : null,
+        leading:
+            leading ??
+            (showBack
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: Icon(CupertinoIcons.back, color: theme.primaryColor),
+                    onPressed: onBackPress ?? () => Navigator.of(context).pop(),
+                  )
+                : null),
         trailing: trailing,
       );
     } else {
@@ -54,12 +58,14 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         centerTitle: true,
-        leading: showBack
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: onBackPress ?? () => Navigator.of(context).pop(),
-              )
-            : null,
+        leading:
+            leading ??
+            (showBack
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: onBackPress ?? () => Navigator.of(context).pop(),
+                  )
+                : null),
         actions: trailing != null ? [trailing!] : actions,
       );
     }
