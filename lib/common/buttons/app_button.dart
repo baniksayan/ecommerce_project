@@ -114,7 +114,7 @@ class AppButton extends StatelessWidget {
             backgroundColor: theme.colorScheme.surface,
             foregroundColor: theme.colorScheme.onSurface,
             elevation: 0,
-            disabledBackgroundColor: theme.disabledColor.withOpacity(0.1),
+            disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.1),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

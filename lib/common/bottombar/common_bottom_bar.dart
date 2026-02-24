@@ -51,7 +51,7 @@ class CommonBottomBar extends StatelessWidget {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.05),
+              color: theme.shadowColor.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),

@@ -57,7 +57,7 @@ class AppCard extends StatelessWidget {
 
     if (variant == AppCardVariant.selectable) {
       if (isSelected) {
-        defaultColor = theme.primaryColor.withOpacity(0.1);
+        defaultColor = theme.primaryColor.withValues(alpha: 0.1);
         border = Border.all(color: theme.primaryColor, width: 2);
       } else {
         border = Border.all(color: theme.dividerColor, width: 1);
@@ -88,7 +88,7 @@ class AppCard extends StatelessWidget {
             ? [] // No shadow on unselected selectable cards to flatten design
             : [
                 BoxShadow(
-                  color: theme.shadowColor.withOpacity(0.06),
+                  color: theme.shadowColor.withValues(alpha: 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),

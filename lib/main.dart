@@ -1,10 +1,17 @@
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/responsive/media_query_helper.dart';
 import 'views/home/home_view.dart';
 
 void main() {
-  runApp(const EnchantedForestApp());
+  runApp(
+    DevicePreview(
+      enabled: !kReleaseMode,
+      builder: (context) => const EnchantedForestApp(),
+    ),
+  );
 }
 
 class EnchantedForestApp extends StatelessWidget {
@@ -17,6 +24,8 @@ class EnchantedForestApp extends StatelessWidget {
     MediaQueryHelper.init(context);
 
     return MaterialApp(
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       title: 'Enchanted Forest App',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

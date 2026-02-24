@@ -117,7 +117,7 @@ class AppDropdown<T> extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isDisabled
-                    ? theme.disabledColor.withOpacity(0.1)
+                    ? theme.disabledColor.withValues(alpha: 0.1)
                     : theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
