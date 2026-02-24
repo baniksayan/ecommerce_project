@@ -57,6 +57,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       appBar: CommonAppBar(
         title: 'Discover',
         showBackButton: false,
@@ -270,7 +271,8 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
 
-            const SizedBox(height: 32),
+            // Extra padding at the bottom to ensure content isn't hidden behind the floating bottom bar when scrolled all the way down.
+            const SizedBox(height: 100),
           ],
         ),
       ),
