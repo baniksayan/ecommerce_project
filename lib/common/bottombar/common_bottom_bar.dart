@@ -20,6 +20,12 @@ class CommonBottomBar extends StatelessWidget {
   final ValueChanged<int> onTap;
   final List<CommonBottomBarItem> items;
 
+  static const double _barHeight = 64.0;
+  static const double _iconSize = 24.0;
+  static const double _minTouchTarget = 48.0;
+  static const double _maxBarWidth = 560.0;
+  static const double _horizontalPadding = 16.0;
+
   const CommonBottomBar({
     Key? key,
     required this.currentIndex,
@@ -47,49 +53,54 @@ class CommonBottomBar extends StatelessWidget {
         }).toList(),
       );
     } else {
-      // Determine screen width for responsive sizing
-      final double screenWidth = MediaQuery.of(context).size.width;
-      final bool isLargeScreen = screenWidth > 600;
-
-      // Control maximum width on very large screens to make it look elegant as a floating pill
-      final double horizontalPadding = isLargeScreen
-          ? (screenWidth * 0.15)
-          : 24.0;
-      final double verticalPadding = isLargeScreen ? 16.0 : 12.0;
-
-      return SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: verticalPadding,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              // The user wants theme-based colors instead of hardcoded
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.1),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+      // Material bottom bar: centered and anchored near the bottom edge.
+      // SafeArea is used only to respect bottom insets; the bar background stays
+      // visually attached to the bottom edge (not floating).
+      return Material(
+        color: theme.colorScheme.surface,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: theme.dividerColor.withValues(alpha: 0.6),
+                width: 1,
+              ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(items.length, (index) {
-                final item = items[index];
-                final isSelected = index == currentIndex;
+          ),
+          child: SafeArea(
+            top: false,
+            left: false,
+            right: false,
+            bottom: true,
+            child: SizedBox(
+              height: _barHeight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _horizontalPadding,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _maxBarWidth),
+                    child: Row(
+                      children: List.generate(items.length, (index) {
+                        final item = items[index];
+                        final isSelected = index == currentIndex;
 
-                return _BottomBarItemWidget(
-                  item: item,
-                  isSelected: isSelected,
-                  onTap: () => onTap(index),
-                  theme: theme,
-                );
-              }),
+                        return Expanded(
+                          child: _BottomBarItemWidget(
+                            item: item,
+                            isSelected: isSelected,
+                            onTap: () => onTap(index),
+                            theme: theme,
+                            iconSize: _iconSize,
+                            minTouchTarget: _minTouchTarget,
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -103,6 +114,8 @@ class _BottomBarItemWidget extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final ThemeData theme;
+  final double iconSize;
+  final double minTouchTarget;
 
   const _BottomBarItemWidget({
     Key? key,
@@ -110,71 +123,108 @@ class _BottomBarItemWidget extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.theme,
+    required this.iconSize,
+    required this.minTouchTarget,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Determine screen width for responsive sizing
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isLargeScreen = screenWidth > 600;
-
-    // Dynamic sizing variables
-    final double horizontalPadding = isLargeScreen
-        ? (isSelected ? 32.0 : 24.0)
-        : (isSelected ? 20.0 : 16.0);
-    final double verticalPadding = isLargeScreen ? 16.0 : 12.0;
-    final double iconSize = isLargeScreen ? 28.0 : 24.0;
-    final double fontSize = isLargeScreen ? 16.0 : 14.0;
-
-    // Unselected items can use theme.unselectedWidgetColor or similar
     final unselectedColor = theme.unselectedWidgetColor;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: EdgeInsets.symmetric(
-          horizontal: horizontalPadding,
-          vertical: verticalPadding,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? theme.primaryColor.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(isLargeScreen ? 40 : 30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected && item.activeIcon != null
-                  ? item.activeIcon
-                  : item.icon,
-              color: isSelected ? theme.primaryColor : unselectedColor,
-              size: iconSize,
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: isSelected
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Text(
-                        item.label,
-                        style: TextStyle(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: fontSize,
-                        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final TextStyle? labelStyle = theme.textTheme.labelMedium?.copyWith(
+          color: theme.primaryColor,
+          fontWeight: FontWeight.w600,
+        );
+
+        final availableWidth = constraints.maxWidth;
+        final bool showLabel = isSelected && availableWidth >= 88;
+
+        final double horizontalPadding = isSelected
+            ? (showLabel ? 14.0 : 10.0)
+            : 10.0;
+        final double verticalPadding = 8.0;
+
+        final double computedLabelMaxWidth =
+            (availableWidth - (horizontalPadding * 2) - iconSize - 8.0).clamp(
+              0.0,
+              96.0,
+            );
+
+        final Widget labelWidget = showLabel
+            ? Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: computedLabelMaxWidth),
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: labelStyle,
+                  ),
+                ),
+              )
+            : const SizedBox.shrink();
+
+        return Semantics(
+          selected: isSelected,
+          button: true,
+          label: item.label,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: minTouchTarget,
+                  minWidth: minTouchTarget,
+                ),
+                child: Center(
+                  child: ClipRect(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: verticalPadding,
                       ),
-                    )
-                  : const SizedBox.shrink(),
+                      decoration: ShapeDecoration(
+                        color: isSelected
+                            ? theme.primaryColor.withValues(alpha: 0.14)
+                            : Colors.transparent,
+                        shape: const StadiumBorder(),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSelected && item.activeIcon != null
+                                ? item.activeIcon
+                                : item.icon,
+                            color: isSelected
+                                ? theme.primaryColor
+                                : unselectedColor,
+                            size: iconSize,
+                          ),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeInOut,
+                            alignment: Alignment.centerLeft,
+                            child: labelWidget,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
