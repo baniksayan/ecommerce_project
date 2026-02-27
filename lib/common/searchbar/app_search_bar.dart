@@ -7,6 +7,8 @@ import '../../core/utils/platform_helper.dart';
 /// Resolves cleanly to CupertinoSearchTextField on iOS, and decorated TextField on Android.
 class AppSearchBar extends StatefulWidget {
   final String hintText;
+  final String? staticPrefix;
+  final List<String>? animatedHints;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onClear;
   final Duration debounceDuration;
@@ -15,6 +17,8 @@ class AppSearchBar extends StatefulWidget {
   const AppSearchBar({
     Key? key,
     this.hintText = 'Search...',
+    this.staticPrefix,
+    this.animatedHints,
     this.onChanged,
     this.onClear,
     this.debounceDuration = const Duration(milliseconds: 500),
@@ -28,6 +32,103 @@ class AppSearchBar extends StatefulWidget {
 class _AppSearchBarState extends State<AppSearchBar> {
   Timer? _debounceTimer;
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  bool _isTypingActive = false;
+  int _currentHintIndex = 0;
+  String _currentHintText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentHintText = widget.hintText;
+
+    if (widget.animatedHints != null && widget.animatedHints!.isNotEmpty) {
+      _startTypewriter();
+    }
+
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+        setState(() {
+          _currentHintText = widget.hintText;
+        });
+      }
+    });
+
+    _controller.addListener(() {
+      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+        setState(() {
+          _currentHintText = widget.hintText;
+        });
+      }
+      // Rebuild to show/hide suffixIcon correctly based on text emptiness
+      setState(() {});
+    });
+  }
+
+  void _startTypewriter() async {
+    _isTypingActive = true;
+    while (_isTypingActive && mounted) {
+      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        continue;
+      }
+
+      final hints = widget.animatedHints!;
+      if (_currentHintIndex >= hints.length) {
+        _currentHintIndex = 0;
+      }
+
+      String target = hints[_currentHintIndex];
+      // Type forward
+      for (int i = 0; i <= target.length; i++) {
+        if (!mounted ||
+            !_isTypingActive ||
+            _focusNode.hasFocus ||
+            _controller.text.isNotEmpty)
+          break;
+        setState(() {
+          _currentHintText =
+              (widget.staticPrefix ?? '') + target.substring(0, i);
+        });
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+
+      if (!mounted ||
+          !_isTypingActive ||
+          _focusNode.hasFocus ||
+          _controller.text.isNotEmpty)
+        continue;
+
+      // Wait at the end
+      await Future.delayed(const Duration(milliseconds: 2000));
+
+      if (!mounted ||
+          !_isTypingActive ||
+          _focusNode.hasFocus ||
+          _controller.text.isNotEmpty)
+        continue;
+
+      // Delete backward
+      for (int i = target.length; i >= 0; i--) {
+        if (!mounted ||
+            !_isTypingActive ||
+            _focusNode.hasFocus ||
+            _controller.text.isNotEmpty)
+          break;
+        setState(() {
+          _currentHintText =
+              (widget.staticPrefix ?? '') + target.substring(0, i);
+        });
+        await Future.delayed(const Duration(milliseconds: 30));
+      }
+
+      if (!mounted || !_isTypingActive) break;
+      if (!_focusNode.hasFocus && _controller.text.isEmpty) {
+        _currentHintIndex = (_currentHintIndex + 1) % hints.length;
+      }
+    }
+  }
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
@@ -45,8 +146,10 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
   @override
   void dispose() {
+    _isTypingActive = false;
     _debounceTimer?.cancel();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -57,7 +160,10 @@ class _AppSearchBarState extends State<AppSearchBar> {
     if (PlatformHelper.isIOS) {
       return CupertinoSearchTextField(
         controller: _controller,
-        placeholder: widget.hintText,
+        focusNode: _focusNode,
+        placeholder: _currentHintText.isEmpty
+            ? (widget.animatedHints?.first ?? widget.hintText)
+            : _currentHintText,
         autofocus: widget.autofocus,
         onChanged: _onSearchChanged,
         onSubmitted: widget.onChanged,
@@ -66,10 +172,13 @@ class _AppSearchBarState extends State<AppSearchBar> {
     } else {
       return TextField(
         controller: _controller,
+        focusNode: _focusNode,
         autofocus: widget.autofocus,
         onChanged: _onSearchChanged,
         decoration: InputDecoration(
-          hintText: widget.hintText,
+          hintText: _currentHintText.isEmpty
+              ? '\u200B'
+              : _currentHintText, // Zero-width space to keep height steady
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _controller.text.isNotEmpty
               ? IconButton(

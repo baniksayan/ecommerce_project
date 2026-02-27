@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'home_widgets.dart';
-import '../../common/appbar/common_app_bar.dart';
-import '../../common/bottombar/common_bottom_bar.dart';
-import '../../common/searchbar/app_search_bar.dart';
-import '../../common/image_viewer/zoomable_image_viewer.dart';
+import '../../common/drawer/app_drawer.dart';
+import '../../common/appbar/primary_sliver_app_bar.dart';
+import '../../common/snackbars/app_snackbar.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -13,8 +12,6 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  int _navIndex = 0;
-
   // Simulate optional profile picture (Set to a URL string or null)
   String? _profilePicUrl;
   // e.g. 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100';
@@ -26,274 +23,262 @@ class _HomeViewState extends State<HomeView> {
     'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800',
   ];
 
-  Widget _buildProfileAvatar({double radius = 20, bool isDrawer = false}) {
-    final avatar = CircleAvatar(
-      radius: radius,
-      backgroundColor: Colors.grey[200],
-      backgroundImage: _profilePicUrl != null
-          ? NetworkImage(_profilePicUrl!)
-          : null,
-      child: _profilePicUrl == null
-          ? Icon(Icons.person, size: radius * 1.2, color: Colors.grey[600])
-          : null,
-    );
+  final List<String> _bannerTitles = [
+    'Summer Collection',
+    'Winter Clearance',
+    'Weekend Flash Sale',
+    'New Arrivals',
+  ];
+  final List<String> _bannerSubtitles = [
+    'Up to 50% Off on select items',
+    'Save big on cold weather gear',
+    'Discounts ending Sunday',
+    'Latest trends and gears',
+  ];
+  final List<String> _bannerImages = [
+    'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=800',
+  ];
 
-    if (isDrawer && _profilePicUrl != null) {
-      return GestureDetector(
-        onTap: () {
-          ZoomableImageViewer.show(
-            context,
-            imageProvider: NetworkImage(_profilePicUrl!),
-            heroTag: 'profile_pic_zoom',
-          );
-        },
-        child: Hero(tag: 'profile_pic_zoom', child: avatar),
+  final List<String> _sectionTitles = [
+    'Groceries You Need',
+    'Fresh & Daily Picks',
+    'Snack Time Favourites',
+    'Beauty Must-Haves',
+    'Drinks for Every Mood',
+    'Dairy Essentials',
+    'Everyday Essentials',
+  ];
+
+  final List<Map<String, dynamic>> _mockProducts = [
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
+      'title': 'Sony Wireless Headphones',
+      'price': 99.99,
+      'originalPrice': 149.99,
+      'discountTag': '33% OFF',
+      'rating': 4.8,
+      'reviewCount': 124,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=400',
+      'title': 'Smart Watch Series 6',
+      'price': 199.99,
+      'originalPrice': 249.99,
+      'discountTag': '20% OFF',
+      'rating': 4.6,
+      'reviewCount': 382,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1618366712010-f4ae9c647bcb?auto=format&fit=crop&q=80&w=400',
+      'title': 'Casual Denim Jacket',
+      'price': 45.00,
+      'originalPrice': 60.00,
+      'discountTag': '25% OFF',
+      'rating': 4.3,
+      'reviewCount': 89,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&q=80&w=400',
+      'title': 'Classic Vans Sneakers',
+      'price': 59.99,
+      'rating': 4.7,
+      'reviewCount': 540,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&q=80&w=400',
+      'title': 'Minimalist Clock',
+      'price': 24.50,
+      'rating': 4.5,
+      'reviewCount': 12,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=400',
+      'title': 'Leather Wallet',
+      'price': 35.00,
+      'rating': 4.9,
+      'reviewCount': 300,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80&w=400',
+      'title': 'Premium Wireless Earbuds',
+      'price': 79.99,
+      'originalPrice': 129.99,
+      'discountTag': 'Save 50',
+      'rating': 4.6,
+      'reviewCount': 412,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&q=80&w=400',
+      'title': 'Classic Sunglasses',
+      'price': 15.00,
+      'originalPrice': 40.00,
+      'discountTag': '62% OFF',
+      'rating': 4.2,
+      'reviewCount': 95,
+    },
+  ];
+
+  List<EcommerceProductCard> _generateProducts(
+    BuildContext context,
+    int sectionIndex,
+  ) {
+    // Generate a diverse, looping sequence based on the section
+    final start = (sectionIndex * 3) % _mockProducts.length;
+    final List<EcommerceProductCard> list = [];
+    for (int i = 0; i < 4; i++) {
+      final item = _mockProducts[(start + i) % _mockProducts.length];
+      list.add(
+        EcommerceProductCard(
+          imageUrl: item['imageUrl'] as String,
+          title: item['title'] as String,
+          price: item['price'] as double,
+          originalPrice: item['originalPrice'] as double?,
+          discountTag: item['discountTag'] as String?,
+          rating: item['rating'] as double?,
+          reviewCount: item['reviewCount'] as int?,
+          onTap: () {},
+          onAddToCart: () {
+            AppSnackbar.success(context, '${item['title']} added to cart');
+          },
+        ),
       );
     }
-
-    return avatar;
+    return list;
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       extendBody: true,
-      appBar: CommonAppBar(
-        title: 'Discover',
-        showBackButton: false,
-        leading: Builder(
-          builder: (context) => Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: GestureDetector(
-              onTap: () {
-                Scaffold.of(context).openDrawer();
-              },
-              child: _buildProfileAvatar(radius: 20),
-            ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      drawer: AppDrawer(profilePicUrl: _profilePicUrl),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(
+          decelerationRate: ScrollDecelerationRate.normal,
+        ),
+        slivers: [
+          PrimarySliverAppBar(
+            searchHintText: 'Search groceries, beauty...',
+            searchStaticPrefix: 'Search ',
+            searchAnimatedHints: const [
+              'groceries...',
+              'beauty products...',
+              'shoes...',
+              'fresh items...',
+              'snacks...',
+              'drinks...',
+              'dairy...',
+            ],
+            onSearchChanged: (val) => debugPrint('Searching: $val'),
           ),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.shopping_cart_outlined),
-          onPressed: () {},
-        ),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            UserAccountsDrawerHeader(
-              accountName: const Text('Jane Doe'),
-              accountEmail: const Text('jane.doe@example.com'),
-              currentAccountPicture: _buildProfileAvatar(
-                radius: 40,
-                isDrawer: true,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('My Profile'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              onTap: () {},
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: AppSearchBar(
-                hintText: 'Search for products, brands...',
-                onChanged: (val) => debugPrint('Searching: $val'),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Promo Carousel
-            EcommercePromoCarousel(
-              imageUrls: _carouselImages,
-              height: 160,
-              onBannerTap: () => debugPrint('Banner Tapped'),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Categories View
-            EcommerceCategoryRow(
-              categories: [
-                EcommerceCategoryItem(
-                  label: 'Fashion',
-                  icon: Icons.checkroom,
-                  onTap: () {},
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                // Promo Carousel
+                EcommercePromoCarousel(
+                  imageUrls: _carouselImages,
+                  height: 180,
+                  onBannerTap: () => debugPrint('Banner Tapped'),
                 ),
-                EcommerceCategoryItem(
-                  label: 'Electronics',
-                  icon: Icons.devices,
-                  onTap: () {},
+                const SizedBox(height: 32),
+                // Categories View
+                EcommerceCategoryRow(
+                  categories: [
+                    EcommerceCategoryItem(
+                      label: 'Grocery',
+                      icon: Icons.local_grocery_store,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Beauty',
+                      icon: Icons.face,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Shoes',
+                      icon: Icons.snowshoeing,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Fresh',
+                      icon: Icons.eco,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Snacks',
+                      icon: Icons.fastfood,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Drinks',
+                      icon: Icons.local_drink,
+                      onTap: () {},
+                    ),
+                    EcommerceCategoryItem(
+                      label: 'Dairy',
+                      icon: Icons.egg_alt,
+                      onTap: () {},
+                    ),
+                  ],
                 ),
-                EcommerceCategoryItem(
-                  label: 'Home',
-                  icon: Icons.chair,
-                  onTap: () {},
-                ),
-                EcommerceCategoryItem(
-                  label: 'Beauty',
-                  icon: Icons.face,
-                  onTap: () {},
-                ),
-                EcommerceCategoryItem(
-                  label: 'Sports',
-                  icon: Icons.sports_basketball,
-                  onTap: () {},
-                ),
-                EcommerceCategoryItem(
-                  label: 'Toys',
-                  icon: Icons.toys,
-                  onTap: () {},
-                ),
+                const SizedBox(height: 16),
               ],
             ),
-
-            const SizedBox(height: 8),
-
-            // Trending Products Section
-            EcommerceSectionTitle(
-              title: 'Trending Products',
-              actionText: 'See All',
-              onActionTap: () {},
-            ),
-
-            EcommerceHorizontalProductList(
-              products: [
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-                  title: 'Sony Wireless Headphones',
-                  price: 99.99,
-                  originalPrice: 149.99,
-                  discountTag: '33% OFF',
-                  rating: 4.8,
-                  reviewCount: 124,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=400',
-                  title: 'Smart Watch Series 6',
-                  price: 199.99,
-                  originalPrice: 249.99,
-                  discountTag: '20% OFF',
-                  rating: 4.6,
-                  reviewCount: 382,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1618366712010-f4ae9c647bcb?auto=format&fit=crop&q=80&w=400',
-                  title: 'Casual Denim Jacket',
-                  price: 45.00,
-                  originalPrice: 60.00,
-                  discountTag: '25% OFF',
-                  rating: 4.3,
-                  reviewCount: 89,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Offer Banner
-            EcommerceOfferBanner(
-              title: 'Summer Collection',
-              subtitle: 'Up to 50% Off on select items',
-              imageUrl:
-                  'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=800',
-              onTap: () {},
-            ),
-
-            const SizedBox(height: 16),
-
-            // New Arrivals Section
-            EcommerceSectionTitle(
-              title: 'New Arrivals',
-              actionText: 'Explore',
-              onActionTap: () {},
-            ),
-
-            EcommerceHorizontalProductList(
-              products: [
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&q=80&w=400',
-                  title: 'Classic Vans Sneakers',
-                  price: 59.99,
-                  rating: 4.7,
-                  reviewCount: 540,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&q=80&w=400',
-                  title: 'Minimalist Clock',
-                  price: 24.50,
-                  rating: 4.5,
-                  reviewCount: 12,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-                EcommerceProductCard(
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=400',
-                  title: 'Leather Wallet',
-                  price: 35.00,
-                  rating: 4.9,
-                  reviewCount: 300,
-                  onTap: () {},
-                  onAddToCart: () {},
-                ),
-              ],
-            ),
-
-            // Extra padding at the bottom to ensure content isn't hidden behind the floating bottom bar when scrolled all the way down.
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
-      bottomNavigationBar: CommonBottomBar(
-        currentIndex: _navIndex,
-        onTap: (val) => setState(() => _navIndex = val),
-        items: [
-          CommonBottomBarItem(
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home,
-            label: 'Home',
           ),
-          CommonBottomBarItem(
-            icon: Icons.favorite_border,
-            activeIcon: Icons.favorite,
-            label: 'Wishlist',
-          ),
-          CommonBottomBarItem(
-            icon: Icons.receipt_long_outlined,
-            activeIcon: Icons.receipt_long,
-            label: 'Orders',
+
+          // Infinite Section Builder
+          SliverList.builder(
+            itemBuilder: (context, index) {
+              if (index % 2 == 0) {
+                // Return a product list section
+                final sectionIndex = index ~/ 2;
+                final title =
+                    _sectionTitles[sectionIndex % _sectionTitles.length];
+                final products = _generateProducts(context, sectionIndex);
+
+                return Column(
+                  children: [
+                    EcommerceSectionTitle(title: title, onActionTap: () {}),
+                    EcommerceHorizontalProductList(products: products),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              } else {
+                // Return an offer banner
+                final bannerIndex = index ~/ 2;
+                final bannerImage =
+                    _bannerImages[bannerIndex % _bannerImages.length];
+                final bannerTitle =
+                    _bannerTitles[bannerIndex % _bannerTitles.length];
+                final bannerSubtitle =
+                    _bannerSubtitles[bannerIndex % _bannerSubtitles.length];
+
+                return Column(
+                  children: [
+                    EcommerceOfferBanner(
+                      title: bannerTitle,
+                      subtitle: bannerSubtitle,
+                      imageUrl: bannerImage,
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),

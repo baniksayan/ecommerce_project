@@ -42,6 +42,7 @@ class AppSnackbar {
     String message,
     SnackbarType type, {
     SnackBarAction? action,
+    Duration? duration,
   }) {
     final snackBar = SnackBar(
       content: Row(
@@ -61,6 +62,7 @@ class AppSnackbar {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       margin: const EdgeInsets.all(16),
       action: action,
+      duration: duration ?? const Duration(milliseconds: 4000),
     );
 
     ScaffoldMessenger.of(context)
@@ -68,21 +70,40 @@ class AppSnackbar {
       ..showSnackBar(snackBar);
   }
 
-  static void success(BuildContext context, String message) =>
-      _show(context, message, SnackbarType.success);
+  static void success(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) => _show(context, message, SnackbarType.success, duration: duration);
 
-  static void error(BuildContext context, String message) =>
-      _show(context, message, SnackbarType.error);
+  static void error(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) => _show(context, message, SnackbarType.error, duration: duration);
 
-  static void warning(BuildContext context, String message) =>
-      _show(context, message, SnackbarType.warning);
+  static void warning(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) => _show(context, message, SnackbarType.warning, duration: duration);
 
-  static void info(BuildContext context, String message) =>
-      _show(context, message, SnackbarType.info);
+  static void info(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) => _show(context, message, SnackbarType.info, duration: duration);
 
   static void destructive(
     BuildContext context,
     String message, {
     SnackBarAction? action,
-  }) => _show(context, message, SnackbarType.destructive, action: action);
+    Duration? duration,
+  }) => _show(
+    context,
+    message,
+    SnackbarType.destructive,
+    action: action,
+    duration: duration,
+  );
 }

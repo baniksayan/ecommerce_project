@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../common/cards/app_card.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/app_currency.dart';
 
-// --- Generic Reusable Components for E-Commerce ---
-
-class EcommerceSectionTitle extends StatelessWidget {
+class EcommerceSectionTitle extends StatefulWidget {
   final String title;
   final String? actionText;
   final VoidCallback? onActionTap;
@@ -15,18 +18,52 @@ class EcommerceSectionTitle extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<EcommerceSectionTitle> createState() => _EcommerceSectionTitleState();
+}
+
+class _EcommerceSectionTitleState extends State<EcommerceSectionTitle>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<Offset> _arrowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+
+    _arrowAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0.2, 0.0)).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final label = widget.actionText ?? 'All';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
+              widget.title,
+              style: AppTextStyles.heading3.copyWith(
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
               ),
@@ -34,20 +71,40 @@ class EcommerceSectionTitle extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (actionText != null)
-            InkWell(
-              onTap: onActionTap,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4.0,
-                  vertical: 2.0,
-                ),
-                child: Text(
-                  actionText!,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.primaryColor,
-                    fontWeight: FontWeight.w600,
+          if (widget.onActionTap != null)
+            Material(
+              color: theme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: widget.onActionTap,
+                highlightColor: theme.primaryColor.withValues(alpha: 0.05),
+                splashColor: theme.primaryColor.withValues(alpha: 0.15),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14.0,
+                    vertical: 6.0,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      SlideTransition(
+                        position: _arrowAnimation,
+                        child: Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 12,
+                          color: theme.primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -83,7 +140,6 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
   @override
   void initState() {
     super.initState();
-    // Start at a high multiple of the length so user can immediately scroll backwards
     final initialPage = widget.imageUrls.isNotEmpty
         ? widget.imageUrls.length * 100
         : 0;
@@ -139,7 +195,7 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 6.0),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(24),
                       image: DecorationImage(
                         image: NetworkImage(widget.imageUrls[realIndex]),
                         fit: BoxFit.cover,
@@ -213,7 +269,7 @@ class EcommerceCategoryItem extends StatelessWidget {
             decoration: BoxDecoration(
               color:
                   backgroundColor ?? theme.primaryColor.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(icon, color: iconColor ?? theme.primaryColor, size: 28),
           ),
@@ -244,7 +300,9 @@ class EcommerceCategoryRow extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      physics: const ClampingScrollPhysics(),
+      physics: const BouncingScrollPhysics(
+        decelerationRate: ScrollDecelerationRate.normal,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: categories.map((cat) {
@@ -262,7 +320,7 @@ class EcommerceCategoryRow extends StatelessWidget {
   }
 }
 
-class EcommerceProductCard extends StatelessWidget {
+class EcommerceProductCard extends StatefulWidget {
   final String imageUrl;
   final String title;
   final double price;
@@ -287,26 +345,42 @@ class EcommerceProductCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<EcommerceProductCard> createState() => _EcommerceProductCardState();
+}
+
+class _EcommerceProductCardState extends State<EcommerceProductCard> {
+  bool _isFavorite = false;
+  bool _inCart = false;
+
+  void _toggleFavorite() {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+  }
+
+  void _handleAddToCart() {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _inCart = !_inCart;
+    });
+    widget.onAddToCart();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasDiscount = originalPrice != null && originalPrice! > price;
+    final hasDiscount =
+        widget.originalPrice != null && widget.originalPrice! > widget.price;
+    final isDark = theme.brightness == Brightness.dark;
+    final errorColor = isDark ? AppColors.darkError : AppColors.lightError;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 160,
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+    return SizedBox(
+      width: 160,
+      child: AppCard.action(
+        onTap: widget.onTap,
+        padding: EdgeInsets.zero,
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -318,9 +392,9 @@ class EcommerceProductCard extends StatelessWidget {
                     top: Radius.circular(16),
                   ),
                   child: AspectRatio(
-                    aspectRatio: 1.0,
+                    aspectRatio: 1.12,
                     child: Image.network(
-                      imageUrl,
+                      widget.imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stack) => Container(
                         color: theme.colorScheme.surfaceContainerHighest,
@@ -332,7 +406,7 @@ class EcommerceProductCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (discountTag != null)
+                if (widget.discountTag != null)
                   Positioned(
                     top: 8,
                     left: 8,
@@ -346,7 +420,7 @@ class EcommerceProductCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        discountTag!,
+                        widget.discountTag!,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -360,9 +434,12 @@ class EcommerceProductCard extends StatelessWidget {
                   top: 4,
                   right: 4,
                   child: IconButton(
-                    icon: const Icon(Icons.favorite_border, size: 20),
-                    color: Colors.grey[400],
-                    onPressed: () {},
+                    icon: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      size: 20,
+                    ),
+                    color: _isFavorite ? errorColor : Colors.grey[400],
+                    onPressed: _toggleFavorite,
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.all(4),
                   ),
@@ -371,92 +448,107 @@ class EcommerceProductCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    // Rating
-                    if (rating != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            rating.toString(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (reviewCount != null)
-                            Text(
-                              ' ($reviewCount)',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.disabledColor,
-                              ),
-                            ),
-                        ],
-                      ),
-                    const Spacer(),
-                    // Price and Add button
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                padding: const EdgeInsets.all(10.0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isTight = constraints.maxHeight < 104;
+                    final double titleRatingGap = isTight ? 2 : 4;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                        Text(
+                          widget.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                            height: 1.05,
+                          ),
+                        ),
+                        SizedBox(height: titleRatingGap),
+                        if (widget.rating != null && !isTight)
+                          Row(
                             children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
-                                '\$${price.toStringAsFixed(2)}',
-                                style: theme.textTheme.titleMedium?.copyWith(
+                                widget.rating.toString(),
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: theme.primaryColor,
                                 ),
                               ),
-                              if (hasDiscount)
+                              if (widget.reviewCount != null)
                                 Text(
-                                  '\$${originalPrice!.toStringAsFixed(2)}',
+                                  ' (${widget.reviewCount})',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    decoration: TextDecoration.lineThrough,
                                     color: theme.disabledColor,
                                   ),
                                 ),
                             ],
                           ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: theme.primaryColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: onAddToCart,
-                            child: const Padding(
-                              padding: EdgeInsets.all(6.0),
-                              child: Icon(
-                                Icons.add,
-                                color: Colors.white,
-                                size: 20,
+                        const Spacer(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${AppCurrency.symbol}${widget.price.toStringAsFixed(2)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.primaryColor,
+                                      height: 1.05,
+                                    ),
+                                  ),
+                                  if (hasDiscount && !isTight)
+                                    Text(
+                                      '${AppCurrency.symbol}${widget.originalPrice!.toStringAsFixed(2)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.caption.copyWith(
+                                        decoration: TextDecoration.lineThrough,
+                                        color: theme.disabledColor,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                          ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: theme.primaryColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: _handleAddToCart,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    _inCart
+                                        ? Icons.shopping_cart
+                                        : Icons.shopping_cart_outlined,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -476,11 +568,14 @@ class EcommerceHorizontalProductList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 320, // Height enough for the product card
+      height:
+          340, // Increased height to prevent bottom overflow with responsive fonts
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
         scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
+        physics: const BouncingScrollPhysics(
+          decelerationRate: ScrollDecelerationRate.normal,
+        ),
         itemCount: products.length,
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) => products[index],
@@ -510,6 +605,7 @@ class EcommerceOfferBanner extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         height: 120,
         decoration: BoxDecoration(

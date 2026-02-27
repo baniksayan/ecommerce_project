@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Centralized color palette based on Enchanted Forest Whimsy theme.
-/// Colors are exposed as static constants.
 class AppColors {
   // Base Palette defined by the theme
   static const Color teaGreen = Color(0xFFC5EFCB);

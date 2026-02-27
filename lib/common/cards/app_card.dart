@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 enum AppCardVariant { info, action, selectable }
 
-/// Centralized Reusable Card Component.
-/// Prevents random elevation/radius styling per screen.
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
