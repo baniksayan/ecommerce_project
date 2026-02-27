@@ -208,7 +208,10 @@ class _WishlistViewState extends State<WishlistView>
     return Scaffold(
       extendBody: true,
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: AppDrawer(profilePicUrl: _profilePicUrl),
+      drawer: AppDrawer(
+        profilePicUrl: _profilePicUrl,
+        currentBottomBarIndex: 1,
+      ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(
           decelerationRate: ScrollDecelerationRate.normal,

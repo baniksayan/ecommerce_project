@@ -1,4 +1,4 @@
-# ecommerce_project
+# mandal_variety
 
 A new Flutter project.
 

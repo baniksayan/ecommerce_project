@@ -163,7 +163,10 @@ class _HomeViewState extends State<HomeView> {
     return Scaffold(
       extendBody: true,
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: AppDrawer(profilePicUrl: _profilePicUrl),
+      drawer: AppDrawer(
+        profilePicUrl: _profilePicUrl,
+        currentBottomBarIndex: 0,
+      ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(
           decelerationRate: ScrollDecelerationRate.normal,

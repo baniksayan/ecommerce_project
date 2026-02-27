@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ecommerce_project/main.dart';
+import 'package:mandal_variety/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {

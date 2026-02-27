@@ -156,12 +156,14 @@ class _OrdersViewState extends State<OrdersView> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       extendBody: true,
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: AppDrawer(profilePicUrl: _profilePicUrl),
+      drawer: AppDrawer(
+        profilePicUrl: _profilePicUrl,
+        currentBottomBarIndex: 2,
+      ),
       // FAB to toggle empty/populated (for demo – remove in prod)
       floatingActionButton: FloatingActionButton.small(
         tooltip: 'Toggle empty/populated',
