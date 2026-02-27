@@ -1,4 +1,5 @@
 import 'package:mandal_variety/views/age_restriction_policy/age_restriction_policy_view.dart';
+import 'package:mandal_variety/views/addresses/my_addresses_view.dart';
 import 'package:mandal_variety/views/cancellation_policy/cancellation_policy_view.dart';
 import 'package:mandal_variety/views/privacy_policy/privacy_policy_view.dart';
 import 'package:mandal_variety/views/terms_and_conditions/terms_and_conditions_view.dart';
@@ -189,7 +190,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     final theme = Theme.of(context);
 
     // Test data for previewing the UI
-    final String displayUserName = widget.userName ?? 'Alex';
+    final String displayUserName = widget.userName ?? 'Sayan';
 
     final String titleText = _isGuest ? 'Guest User' : 'Hi, $displayUserName!';
     final String subtitleText = _isGuest
@@ -360,6 +361,19 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                   context,
                   title: 'My Addresses',
                   icon: Icons.location_on_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MyAddressesView(
+                          currentBottomBarIndex:
+                              widget.currentBottomBarIndex ?? 0,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,

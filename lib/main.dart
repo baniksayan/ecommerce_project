@@ -1,10 +1,16 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/responsive/media_query_helper.dart';
+import 'core/location/address_location_coordinator.dart';
 import 'views/main/main_view.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await AddressLocationCoordinator.instance.init();
+
   runApp(
     DevicePreview(
       enabled: true,
@@ -15,8 +21,43 @@ void main() {
   );
 }
 
-class EnchantedForestApp extends StatelessWidget {
+class EnchantedForestApp extends StatefulWidget {
   const EnchantedForestApp({super.key});
+
+  @override
+  State<EnchantedForestApp> createState() => _EnchantedForestAppState();
+}
+
+class _EnchantedForestAppState extends State<EnchantedForestApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AddressLocationCoordinator.instance.ensureFirstInstallDetection(
+        context,
+      );
+      await AddressLocationCoordinator.instance.syncOnAppOpenWithPrompts(
+        context,
+      );
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!mounted) return;
+      AddressLocationCoordinator.instance.syncOnAppOpenWithPrompts(context);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

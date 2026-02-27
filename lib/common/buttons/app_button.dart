@@ -61,30 +61,45 @@ class AppButton extends StatelessWidget {
     final bool isDisabled = onPressed == null || isLoading;
     final callback = isDisabled ? null : onPressed;
 
-    Widget buttonContent = Row(
-      mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (isLoading) ...[
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                variant == AppButtonVariant.primary
-                    ? theme.colorScheme.onPrimary
-                    : theme.primaryColor,
+    final label = Text(
+      text,
+      style: AppTextStyles.button,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+    );
+
+    Widget buttonContent = LayoutBuilder(
+      builder: (context, constraints) {
+        final useFlexibleLabel = constraints.hasBoundedWidth;
+
+        return Row(
+          mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading) ...[
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    variant == AppButtonVariant.primary
+                        ? theme.colorScheme.onPrimary
+                        : theme.primaryColor,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-        ],
-        Text(text, style: AppTextStyles.button),
-      ],
+              const SizedBox(width: 12),
+            ] else if (icon != null) ...[
+              Icon(icon, size: 20),
+              const SizedBox(width: 8),
+            ],
+            if (useFlexibleLabel) Flexible(child: label) else label,
+          ],
+        );
+      },
     );
 
     // Apply specific widget based on variant

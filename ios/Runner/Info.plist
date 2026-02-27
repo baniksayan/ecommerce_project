@@ -88,5 +88,7 @@
         <string>tmap</string>
         <string>szn-mapy</string>
     </array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to detect your current delivery address.</string>
 </dict>
 </plist>
