@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../common/buttons/app_button.dart';
+import '../../common/buttons/cart_icon_button.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/snackbars/app_snackbar.dart';
 import '../../core/location/address_location_coordinator.dart';
@@ -115,7 +116,6 @@ class _ManualAddressFormViewState extends State<ManualAddressFormView> {
     final theme = Theme.of(context);
     final isIOS = theme.platform == TargetPlatform.iOS;
     final onSurface = theme.colorScheme.onSurface;
-    final primary = theme.primaryColor;
 
     final isEditing = widget.existing != null;
 
@@ -167,53 +167,9 @@ class _ManualAddressFormViewState extends State<ManualAddressFormView> {
           style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Semantics(
-                  label: 'Cart, 2 items',
-                  button: true,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: primary.withValues(alpha: 0.08),
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.shopping_cart_outlined, color: primary),
-                      tooltip: 'Cart',
-                      onPressed: () => HapticFeedback.lightImpact(),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 4,
-                  top: 6,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 17,
-                      height: 17,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Text(
-                        '2',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          CartIconButton(
+            margin: const EdgeInsets.only(right: 12),
+            currentBottomBarIndex: widget.currentBottomBarIndex,
           ),
         ],
       ),
@@ -309,6 +265,7 @@ class _ManualAddressFormViewState extends State<ManualAddressFormView> {
                 controller: _pinCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                textInputAction: TextInputAction.done,
                 decoration: decoration('PIN code (optional)'),
               ),
               const SizedBox(height: 18),

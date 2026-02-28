@@ -4,6 +4,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_colors.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
+import '../../common/buttons/app_button.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 
@@ -40,7 +41,7 @@ class Order {
 // ─────────────────────────────────────────────
 
 class OrdersView extends StatefulWidget {
-  const OrdersView({Key? key}) : super(key: key);
+  const OrdersView({super.key});
 
   @override
   State<OrdersView> createState() => _OrdersViewState();
@@ -250,7 +251,7 @@ class _OrdersViewState extends State<OrdersView> with TickerProviderStateMixin {
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 itemCount: _recommendedItems.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final item = _recommendedItems[index];
                   return EcommerceProductCard(
@@ -552,7 +553,7 @@ class _OrderCard extends StatelessWidget {
                 width: 72,
                 height: 72,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 72,
                   height: 72,
                   color: theme.colorScheme.surfaceContainerHighest,
@@ -825,7 +826,10 @@ class _EmptyOrdersState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          FilledButton.icon(
+          AppButton.primary(
+            text: 'Start Shopping',
+            icon: Icons.storefront_rounded,
+            isFullWidth: true,
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
@@ -835,14 +839,6 @@ class _EmptyOrdersState extends StatelessWidget {
                 (route) => false,
               );
             },
-            icon: const Icon(Icons.storefront_rounded, size: 18),
-            label: const Text('Start Shopping'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-            ),
           ),
         ],
       ),

@@ -6,16 +6,50 @@ import '../../core/theme/app_text_styles.dart';
 /// Centralized Dialog system mapping standard alerts and confirm actions
 /// natively to Android (Material) and iOS (Cupertino).
 class AppDialog {
+  static Widget _buildScrollableContent(BuildContext context, Widget child) {
+    final size = MediaQuery.sizeOf(context);
+    final maxHeight = size.height * 0.45;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(
+          decelerationRate: ScrollDecelerationRate.normal,
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  static Widget _buildMessageText(BuildContext context, String message) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        message,
+        textAlign: TextAlign.start,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: onSurface.withValues(alpha: 0.8),
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
   /// General purpose show dialog
   static Future<T?> show<T>({
     required BuildContext context,
     required String title,
     required Widget content,
     required List<Widget> actions,
+    bool barrierDismissible = true,
   }) {
     if (PlatformHelper.isIOS) {
       return showCupertinoDialog<T>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) => CupertinoAlertDialog(
           title: Text(title, style: AppTextStyles.heading3),
           content: Padding(
@@ -28,6 +62,7 @@ class AppDialog {
     } else {
       return showDialog<T>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) => AlertDialog(
           title: Text(title, style: AppTextStyles.heading3),
           content: content,
@@ -48,21 +83,30 @@ class AppDialog {
     String confirmText = 'Confirm',
     String cancelText = 'Cancel',
     bool isDestructive = false,
+    bool barrierDismissible = false,
   }) {
     if (PlatformHelper.isIOS) {
       return showCupertinoDialog<bool>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) => CupertinoAlertDialog(
-          title: Text(title),
-          content: Text(message),
+          title: Text(title, style: AppTextStyles.heading3),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: _buildScrollableContent(
+              context,
+              _buildMessageText(context, message),
+            ),
+          ),
           actions: [
             CupertinoDialogAction(
-              isDefaultAction: true,
+              isDefaultAction: isDestructive,
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(cancelText),
             ),
             CupertinoDialogAction(
               isDestructiveAction: isDestructive,
+              isDefaultAction: !isDestructive,
               onPressed: () => Navigator.of(context).pop(true),
               child: Text(confirmText),
             ),
@@ -72,11 +116,13 @@ class AppDialog {
     } else {
       return showDialog<bool>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) {
           final theme = Theme.of(context);
           return AlertDialog(
-            title: Text(title),
-            content: Text(message),
+            scrollable: true,
+            title: Text(title, style: AppTextStyles.heading3),
+            content: _buildMessageText(context, message),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -113,13 +159,21 @@ class AppDialog {
     required String title,
     required String message,
     String buttonText = 'OK',
+    bool barrierDismissible = true,
   }) {
     if (PlatformHelper.isIOS) {
       return showCupertinoDialog<void>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) => CupertinoAlertDialog(
-          title: Text(title),
-          content: Text(message),
+          title: Text(title, style: AppTextStyles.heading3),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: _buildScrollableContent(
+              context,
+              _buildMessageText(context, message),
+            ),
+          ),
           actions: [
             CupertinoDialogAction(
               isDefaultAction: true,
@@ -132,9 +186,11 @@ class AppDialog {
     } else {
       return showDialog<void>(
         context: context,
+        barrierDismissible: barrierDismissible,
         builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
+          scrollable: true,
+          title: Text(title, style: AppTextStyles.heading3),
+          content: _buildMessageText(context, message),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

@@ -11,11 +11,11 @@ class EcommerceSectionTitle extends StatefulWidget {
   final VoidCallback? onActionTap;
 
   const EcommerceSectionTitle({
-    Key? key,
+    super.key,
     required this.title,
     this.actionText,
     this.onActionTap,
-  }) : super(key: key);
+  });
 
   @override
   State<EcommerceSectionTitle> createState() => _EcommerceSectionTitleState();
@@ -122,12 +122,12 @@ class EcommercePromoCarousel extends StatefulWidget {
   final VoidCallback? onBannerTap;
 
   const EcommercePromoCarousel({
-    Key? key,
+    super.key,
     required this.imageUrls,
     this.height = 160.0,
     this.onPageChanged,
     this.onBannerTap,
-  }) : super(key: key);
+  });
 
   @override
   State<EcommercePromoCarousel> createState() => _EcommercePromoCarouselState();
@@ -246,13 +246,13 @@ class EcommerceCategoryItem extends StatelessWidget {
   final Color? backgroundColor;
 
   const EcommerceCategoryItem({
-    Key? key,
+    super.key,
     required this.label,
     required this.icon,
     required this.onTap,
     this.iconColor,
     this.backgroundColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -292,8 +292,7 @@ class EcommerceCategoryItem extends StatelessWidget {
 class EcommerceCategoryRow extends StatelessWidget {
   final List<EcommerceCategoryItem> categories;
 
-  const EcommerceCategoryRow({Key? key, required this.categories})
-    : super(key: key);
+  const EcommerceCategoryRow({super.key, required this.categories});
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +331,7 @@ class EcommerceProductCard extends StatefulWidget {
   final VoidCallback onAddToCart;
 
   const EcommerceProductCard({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.title,
     required this.price,
@@ -342,7 +341,7 @@ class EcommerceProductCard extends StatefulWidget {
     this.rating,
     this.reviewCount,
     this.discountTag,
-  }) : super(key: key);
+  });
 
   @override
   State<EcommerceProductCard> createState() => _EcommerceProductCardState();
@@ -562,8 +561,7 @@ class _EcommerceProductCardState extends State<EcommerceProductCard> {
 class EcommerceHorizontalProductList extends StatelessWidget {
   final List<EcommerceProductCard> products;
 
-  const EcommerceHorizontalProductList({Key? key, required this.products})
-    : super(key: key);
+  const EcommerceHorizontalProductList({super.key, required this.products});
 
   @override
   Widget build(BuildContext context) {
@@ -592,12 +590,12 @@ class EcommerceOfferBanner extends StatelessWidget {
   final VoidCallback onTap;
 
   const EcommerceOfferBanner({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.imageUrl,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

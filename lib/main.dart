@@ -1,14 +1,18 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'core/cart/cart_coordinator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/responsive/media_query_helper.dart';
 import 'core/location/address_location_coordinator.dart';
+import 'core/wishlist/wishlist_coordinator.dart';
 import 'views/main/main_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+  await CartCoordinator.instance.init();
+  await WishlistCoordinator.instance.init();
   await AddressLocationCoordinator.instance.init();
 
   runApp(

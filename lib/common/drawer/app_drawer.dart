@@ -16,11 +16,11 @@ class AppDrawer extends StatefulWidget {
   final int? currentBottomBarIndex;
 
   const AppDrawer({
-    Key? key,
+    super.key,
     this.profilePicUrl,
     this.userName,
     this.currentBottomBarIndex,
-  }) : super(key: key);
+  });
 
   @override
   State<AppDrawer> createState() => _AppDrawerState();

@@ -27,11 +27,11 @@ class CommonBottomBar extends StatelessWidget {
   static const double _horizontalPadding = 16.0;
 
   const CommonBottomBar({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
     required this.items,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -118,14 +118,13 @@ class _BottomBarItemWidget extends StatelessWidget {
   final double minTouchTarget;
 
   const _BottomBarItemWidget({
-    Key? key,
     required this.item,
     required this.isSelected,
     required this.onTap,
     required this.theme,
     required this.iconSize,
     required this.minTouchTarget,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

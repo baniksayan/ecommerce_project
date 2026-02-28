@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import '../searchbar/app_search_bar.dart';
+import '../buttons/cart_icon_button.dart';
 
 class PrimarySliverAppBar extends StatelessWidget {
   final String searchHintText;
   final String? searchStaticPrefix;
   final List<String>? searchAnimatedHints;
   final ValueChanged<String>? onSearchChanged;
-  final int cartItemCount;
+  final int? cartItemCount;
+  final int currentBottomBarIndex;
 
   const PrimarySliverAppBar({
-    Key? key,
+    super.key,
     required this.searchHintText,
     this.searchStaticPrefix,
     this.searchAnimatedHints,
     this.onSearchChanged,
-    this.cartItemCount = 2,
-  }) : super(key: key);
+    this.cartItemCount,
+    this.currentBottomBarIndex = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,44 +54,7 @@ class PrimarySliverAppBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.primaryColor.withValues(alpha: 0.08),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.shopping_cart_outlined,
-                      color: theme.primaryColor,
-                    ),
-                    onPressed: () {},
-                  ),
-                ),
-                if (cartItemCount > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$cartItemCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            CartIconButton(currentBottomBarIndex: currentBottomBarIndex),
           ],
         ),
       ),

@@ -15,7 +15,7 @@ class AppSearchBar extends StatefulWidget {
   final bool autofocus;
 
   const AppSearchBar({
-    Key? key,
+    super.key,
     this.hintText = 'Search...',
     this.staticPrefix,
     this.animatedHints,
@@ -23,7 +23,7 @@ class AppSearchBar extends StatefulWidget {
     this.onClear,
     this.debounceDuration = const Duration(milliseconds: 500),
     this.autofocus = false,
-  }) : super(key: key);
+  });
 
   @override
   State<AppSearchBar> createState() => _AppSearchBarState();
@@ -85,8 +85,9 @@ class _AppSearchBarState extends State<AppSearchBar> {
         if (!mounted ||
             !_isTypingActive ||
             _focusNode.hasFocus ||
-            _controller.text.isNotEmpty)
+            _controller.text.isNotEmpty) {
           break;
+        }
         setState(() {
           _currentHintText =
               (widget.staticPrefix ?? '') + target.substring(0, i);
@@ -97,8 +98,9 @@ class _AppSearchBarState extends State<AppSearchBar> {
       if (!mounted ||
           !_isTypingActive ||
           _focusNode.hasFocus ||
-          _controller.text.isNotEmpty)
+          _controller.text.isNotEmpty) {
         continue;
+      }
 
       // Wait at the end
       await Future.delayed(const Duration(milliseconds: 2000));
@@ -106,16 +108,18 @@ class _AppSearchBarState extends State<AppSearchBar> {
       if (!mounted ||
           !_isTypingActive ||
           _focusNode.hasFocus ||
-          _controller.text.isNotEmpty)
+          _controller.text.isNotEmpty) {
         continue;
+      }
 
       // Delete backward
       for (int i = target.length; i >= 0; i--) {
         if (!mounted ||
             !_isTypingActive ||
             _focusNode.hasFocus ||
-            _controller.text.isNotEmpty)
+            _controller.text.isNotEmpty) {
           break;
+        }
         setState(() {
           _currentHintText =
               (widget.staticPrefix ?? '') + target.substring(0, i);

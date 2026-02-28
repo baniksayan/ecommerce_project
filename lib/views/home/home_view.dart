@@ -3,9 +3,11 @@ import 'home_widgets.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/snackbars/app_snackbar.dart';
+import '../../core/cart/cart_coordinator.dart';
+import '../../data/models/cart_item_model.dart';
 
 class HomeView extends StatefulWidget {
-  const HomeView({Key? key}) : super(key: key);
+  const HomeView({super.key});
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -149,6 +151,15 @@ class _HomeViewState extends State<HomeView> {
           reviewCount: item['reviewCount'] as int?,
           onTap: () {},
           onAddToCart: () {
+            CartCoordinator.instance.addItem(
+              CartItemModel(
+                productId: '${item['title']}-${item['imageUrl']}',
+                name: item['title'] as String,
+                imageUrl: item['imageUrl'] as String,
+                unitPrice: item['price'] as double,
+                quantity: 1,
+              ),
+            );
             AppSnackbar.success(context, '${item['title']} added to cart');
           },
         ),
@@ -185,6 +196,7 @@ class _HomeViewState extends State<HomeView> {
               'dairy...',
             ],
             onSearchChanged: (val) => debugPrint('Searching: $val'),
+            currentBottomBarIndex: 0,
           ),
           SliverToBoxAdapter(
             child: Column(

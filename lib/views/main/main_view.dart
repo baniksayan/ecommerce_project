@@ -8,7 +8,7 @@ import '../orders/orders_view.dart';
 class MainView extends StatefulWidget {
   final int initialIndex;
 
-  const MainView({Key? key, this.initialIndex = 0}) : super(key: key);
+  const MainView({super.key, this.initialIndex = 0});
 
   @override
   State<MainView> createState() => _MainViewState();

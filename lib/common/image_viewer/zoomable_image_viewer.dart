@@ -26,12 +26,12 @@ class ZoomableImageViewer extends StatefulWidget {
       PageRouteBuilder(
         opaque: true,
         barrierColor: backgroundColor,
-        pageBuilder: (_, __, ___) => ZoomableImageViewer(
+        pageBuilder: (_, _, _) => ZoomableImageViewer(
           imageProvider: imageProvider,
           heroTag: heroTag,
           backgroundColor: backgroundColor,
         ),
-        transitionsBuilder: (_, animation, __, child) =>
+        transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
     );

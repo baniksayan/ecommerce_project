@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../common/buttons/cart_icon_button.dart';
 import '../../core/theme/app_colors.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../main/main_view.dart';
@@ -312,7 +313,6 @@ class _CancellationPolicyViewState extends State<CancellationPolicyView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isIOS = theme.platform == TargetPlatform.iOS;
     final primary = theme.primaryColor;
     final onSurface = theme.colorScheme.onSurface;
 
@@ -330,14 +330,8 @@ class _CancellationPolicyViewState extends State<CancellationPolicyView> {
         leading: Semantics(
           label: 'Go back',
           button: true,
-          child: IconButton(
-            icon: Icon(
-              isIOS
-                  ? Icons.arrow_back_ios_new_rounded
-                  : Icons.arrow_back_rounded,
-              color: onSurface,
-            ),
-            tooltip: 'Back',
+          child: BackButton(
+            color: onSurface,
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -346,53 +340,9 @@ class _CancellationPolicyViewState extends State<CancellationPolicyView> {
           style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Semantics(
-                  label: 'Cart, 2 items',
-                  button: true,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: primary.withValues(alpha: 0.08),
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.shopping_cart_outlined, color: primary),
-                      tooltip: 'Cart',
-                      onPressed: () => HapticFeedback.lightImpact(),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 4,
-                  top: 6,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 17,
-                      height: 17,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Text(
-                        '2',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          CartIconButton(
+            margin: const EdgeInsets.only(right: 12),
+            currentBottomBarIndex: widget.currentBottomBarIndex,
           ),
         ],
         // ── Read progress bar ──────────────────────────────
@@ -400,7 +350,7 @@ class _CancellationPolicyViewState extends State<CancellationPolicyView> {
           preferredSize: const Size.fromHeight(3),
           child: AnimatedBuilder(
             animation: _scrollController,
-            builder: (_, __) => LinearProgressIndicator(
+            builder: (_, _) => LinearProgressIndicator(
               value: _scrollProgress,
               minHeight: 3,
               backgroundColor: onSurface.withValues(alpha: 0.08),

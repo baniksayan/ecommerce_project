@@ -13,14 +13,14 @@ class AppDropdown<T> extends StatelessWidget {
   final String? errorText;
 
   const AppDropdown({
-    Key? key,
+    super.key,
     required this.label,
     required this.items,
     this.value,
     this.onChanged,
     this.isExpand = true,
     this.errorText,
-  }) : super(key: key);
+  });
 
   void _showIOSPicker(BuildContext context) {
     if (onChanged == null) return;
@@ -162,7 +162,7 @@ class AppDropdown<T> extends StatelessWidget {
     } else {
       // Android Implementation using Material DropdownButtonFormField
       return DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           focusedBorder: OutlineInputBorder(

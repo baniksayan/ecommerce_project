@@ -11,12 +11,12 @@ class CommonTabBar extends StatelessWidget {
   tabController; // Required for Android Material swipe physics
 
   const CommonTabBar({
-    Key? key,
+    super.key,
     required this.tabs,
     required this.currentIndex,
     required this.onTabChanged,
     this.tabController,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

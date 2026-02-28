@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import '../../common/buttons/app_button.dart';
+import '../../common/buttons/cart_icon_button.dart';
 import '../../common/snackbars/app_snackbar.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
@@ -115,7 +116,6 @@ class _ContactUsViewState extends State<ContactUsView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
 
     return Scaffold(
       extendBody: true,
@@ -124,11 +124,8 @@ class _ContactUsViewState extends State<ContactUsView> {
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: Icon(
-            isIOS ? Icons.arrow_back_ios_new_rounded : Icons.arrow_back_rounded,
-            color: theme.colorScheme.onSurface,
-          ),
+        leading: BackButton(
+          color: theme.colorScheme.onSurface,
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -136,46 +133,9 @@ class _ContactUsViewState extends State<ContactUsView> {
           style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.primaryColor.withValues(alpha: 0.08),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.shopping_cart_outlined,
-                    color: theme.primaryColor,
-                  ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                  },
-                ),
-              ),
-              Positioned(
-                right: 16,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Text(
-                    '2',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          CartIconButton(
+            margin: const EdgeInsets.only(right: 12),
+            currentBottomBarIndex: widget.currentBottomBarIndex,
           ),
         ],
       ),

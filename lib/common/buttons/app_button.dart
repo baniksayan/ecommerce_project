@@ -14,44 +14,41 @@ class AppButton extends StatelessWidget {
   final IconData? icon;
 
   const AppButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.variant = AppButtonVariant.primary,
     this.isLoading = false,
     this.isFullWidth = false,
     this.icon,
-  }) : super(key: key);
+  });
 
   const AppButton.primary({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
     this.isFullWidth = false,
     this.icon,
-  }) : variant = AppButtonVariant.primary,
-       super(key: key);
+  }) : variant = AppButtonVariant.primary;
 
   const AppButton.secondary({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
     this.isFullWidth = false,
     this.icon,
-  }) : variant = AppButtonVariant.secondary,
-       super(key: key);
+  }) : variant = AppButtonVariant.secondary;
 
   const AppButton.outline({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
     this.isFullWidth = false,
     this.icon,
-  }) : variant = AppButtonVariant.outline,
-       super(key: key);
+  }) : variant = AppButtonVariant.outline;
 
   @override
   Widget build(BuildContext context) {
@@ -70,36 +67,35 @@ class AppButton extends StatelessWidget {
       textAlign: TextAlign.center,
     );
 
-    Widget buttonContent = LayoutBuilder(
-      builder: (context, constraints) {
-        final useFlexibleLabel = constraints.hasBoundedWidth;
+    // NOTE: Avoid LayoutBuilder here.
+    // SliverFillRemaining(hasScrollBody: false) may compute intrinsic height,
+    // and LayoutBuilder throws when asked for intrinsic dimensions.
+    final Widget labelWidget = isFullWidth ? Flexible(child: label) : label;
 
-        return Row(
-          mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isLoading) ...[
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    variant == AppButtonVariant.primary
-                        ? theme.colorScheme.onPrimary
-                        : theme.primaryColor,
-                  ),
-                ),
+    final Widget buttonContent = Row(
+      mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (isLoading) ...[
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                variant == AppButtonVariant.primary
+                    ? theme.colorScheme.onPrimary
+                    : theme.primaryColor,
               ),
-              const SizedBox(width: 12),
-            ] else if (icon != null) ...[
-              Icon(icon, size: 20),
-              const SizedBox(width: 8),
-            ],
-            if (useFlexibleLabel) Flexible(child: label) else label,
-          ],
-        );
-      },
+            ),
+          ),
+          const SizedBox(width: 12),
+        ] else if (icon != null) ...[
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+        ],
+        labelWidget,
+      ],
     );
 
     // Apply specific widget based on variant

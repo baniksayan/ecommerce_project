@@ -14,20 +14,21 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
 
   const CommonAppBar({
-    Key? key,
+    super.key,
     required this.title,
     this.actions,
     this.showBackButton = true,
     this.onBackPress,
     this.trailing,
     this.leading,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canPop = ModalRoute.of(context)?.canPop ?? false;
     final showBack = showBackButton && canPop;
+    final backgroundColor = theme.scaffoldBackgroundColor;
 
     if (PlatformHelper.isIOS) {
       return CupertinoNavigationBar(
@@ -37,16 +38,15 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: backgroundColor,
         border: Border(
           bottom: BorderSide(color: theme.dividerColor, width: 0.5),
         ),
         leading:
             leading ??
             (showBack
-                ? CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: Icon(CupertinoIcons.back, color: theme.primaryColor),
+                ? CupertinoNavigationBarBackButton(
+                    color: theme.primaryColor,
                     onPressed: onBackPress ?? () => Navigator.of(context).pop(),
                   )
                 : null),
@@ -55,14 +55,13 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     } else {
       return AppBar(
         title: Text(title, style: AppTextStyles.heading2),
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: backgroundColor,
         elevation: 0,
         centerTitle: true,
         leading:
             leading ??
             (showBack
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                ? BackButton(
                     onPressed: onBackPress ?? () => Navigator.of(context).pop(),
                   )
                 : null),

@@ -12,39 +12,36 @@ class AppCard extends StatelessWidget {
   final Color? backgroundColor;
 
   const AppCard({
-    Key? key,
+    super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16.0),
     this.margin,
     this.backgroundColor,
   }) : variant = AppCardVariant.info,
        onTap = null,
-       isSelected = false,
-       super(key: key);
+       isSelected = false;
 
   /// A card that reacts to being pressed (ink ripple vs nothing).
   const AppCard.action({
-    Key? key,
+    super.key,
     required this.child,
     required this.onTap,
     this.padding = const EdgeInsets.all(16.0),
     this.margin,
     this.backgroundColor,
   }) : variant = AppCardVariant.action,
-       isSelected = false,
-       super(key: key);
+       isSelected = false;
 
   /// A card that acts as a selectable item (e.g., in a grid or list of options).
   const AppCard.selectable({
-    Key? key,
+    super.key,
     required this.child,
     required this.onTap,
     required this.isSelected,
     this.padding = const EdgeInsets.all(16.0),
     this.margin,
     this.backgroundColor,
-  }) : variant = AppCardVariant.selectable,
-       super(key: key);
+  }) : variant = AppCardVariant.selectable;
 
   @override
   Widget build(BuildContext context) {
