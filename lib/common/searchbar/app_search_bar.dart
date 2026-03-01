@@ -9,7 +9,9 @@ class AppSearchBar extends StatefulWidget {
   final String hintText;
   final String? staticPrefix;
   final List<String>? animatedHints;
+  final String? initialText;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
   final Duration debounceDuration;
   final bool autofocus;
@@ -19,7 +21,9 @@ class AppSearchBar extends StatefulWidget {
     this.hintText = 'Search...',
     this.staticPrefix,
     this.animatedHints,
+    this.initialText,
     this.onChanged,
+    this.onSubmitted,
     this.onClear,
     this.debounceDuration = const Duration(milliseconds: 500),
     this.autofocus = false,
@@ -42,6 +46,11 @@ class _AppSearchBarState extends State<AppSearchBar> {
   void initState() {
     super.initState();
     _currentHintText = widget.hintText;
+
+    final initial = widget.initialText;
+    if (initial != null && initial.trim().isNotEmpty) {
+      _controller.text = initial;
+    }
 
     if (widget.animatedHints != null && widget.animatedHints!.isNotEmpty) {
       _startTypewriter();
@@ -170,7 +179,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
             : _currentHintText,
         autofocus: widget.autofocus,
         onChanged: _onSearchChanged,
-        onSubmitted: widget.onChanged,
+        onSubmitted: widget.onSubmitted ?? widget.onChanged,
         style: TextStyle(color: theme.textTheme.bodyLarge?.color),
       );
     } else {
@@ -179,6 +188,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
         focusNode: _focusNode,
         autofocus: widget.autofocus,
         onChanged: _onSearchChanged,
+        onSubmitted: widget.onSubmitted,
         decoration: InputDecoration(
           hintText: _currentHintText.isEmpty
               ? '\u200B'

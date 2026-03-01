@@ -7,10 +7,11 @@ import '../../core/utils/app_currency.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/buttons/app_button.dart';
-import '../../common/snackbars/app_snackbar.dart';
 import '../../core/cart/cart_coordinator.dart';
+import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/wishlist/wishlist_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
+import '../../data/models/product_model.dart';
 import '../../data/models/wishlist_item_model.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
@@ -153,11 +154,7 @@ class _WishlistViewState extends State<WishlistView>
   void _removeItem(WishlistItem item) {
     HapticFeedback.heavyImpact();
     WishlistCoordinator.instance.removeItem(item.id);
-    AppSnackbar.destructive(
-      context,
-      '${item.title} removed',
-      duration: const Duration(seconds: 1),
-    );
+    
   }
 
   void _addToCart(WishlistItem item) {
@@ -176,7 +173,6 @@ class _WishlistViewState extends State<WishlistView>
       if (!mounted) return;
       setState(() => item.isAddedToCart = false);
       WishlistCoordinator.instance.removeItem(item.id);
-      AppSnackbar.success(context, '${item.title} added to cart');
     });
   }
 
@@ -203,7 +199,6 @@ class _WishlistViewState extends State<WishlistView>
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
       WishlistCoordinator.instance.clear();
-      AppSnackbar.success(context, '$itemCount items added to cart');
     });
   }
 
@@ -284,7 +279,13 @@ class _WishlistViewState extends State<WishlistView>
               child: EcommerceSectionTitle(
                 title: !isEmpty ? 'Similar Items' : 'Recommended for you',
                 actionText: 'See All',
-                onActionTap: () {},
+                onActionTap: () {
+                  ProductListingCoordinator.instance.openListing(
+                    context,
+                    category: ProductCategory.grocery,
+                    currentBottomBarIndex: 1,
+                  );
+                },
               ),
             ),
           ),
@@ -307,10 +308,7 @@ class _WishlistViewState extends State<WishlistView>
                     reviewCount: item['reviewCount'],
                     onTap: () {},
                     onAddToCart: () {
-                      AppSnackbar.success(
-                        context,
-                        '${item['title']} added to cart',
-                      );
+                      
                     },
                   );
                 },

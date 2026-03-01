@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'home_widgets.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
-import '../../common/snackbars/app_snackbar.dart';
 import '../../core/cart/cart_coordinator.dart';
+import '../../core/product_listing/product_listing_coordinator.dart';
+import '../../core/tobacco/tobacco_access_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../product_listing/product_listing_view.dart';
@@ -162,12 +163,25 @@ class _HomeViewState extends State<HomeView> {
                 quantity: 1,
               ),
             );
-            AppSnackbar.success(context, '${item['title']} added to cart');
           },
         ),
       );
     }
     return list;
+  }
+
+  ProductCategory _categoryForSectionTitle(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('groc')) return ProductCategory.grocery;
+    if (t.contains('fresh')) return ProductCategory.fresh;
+    if (t.contains('snack')) return ProductCategory.snacks;
+    if (t.contains('beauty')) return ProductCategory.beauty;
+    if (t.contains('drink')) return ProductCategory.drinks;
+    if (t.contains('dairy')) return ProductCategory.dairy;
+    if (t.contains('shoe')) return ProductCategory.shoes;
+    if (t.contains('paan') || t.contains('tobacco'))
+      return ProductCategory.tobacco;
+    return ProductCategory.grocery;
   }
 
   @override
@@ -298,6 +312,16 @@ class _HomeViewState extends State<HomeView> {
                         );
                       },
                     ),
+                    EcommerceCategoryItem(
+                      label: 'Paan Corner',
+                      icon: Icons.smoking_rooms_outlined,
+                      onTap: () {
+                        TobaccoAccessCoordinator.instance.openTobaccoListing(
+                          context,
+                          currentBottomBarIndex: 0,
+                        );
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -317,7 +341,16 @@ class _HomeViewState extends State<HomeView> {
 
                 return Column(
                   children: [
-                    EcommerceSectionTitle(title: title, onActionTap: () {}),
+                    EcommerceSectionTitle(
+                      title: title,
+                      onActionTap: () {
+                        ProductListingCoordinator.instance.openListing(
+                          context,
+                          category: _categoryForSectionTitle(title),
+                          currentBottomBarIndex: 0,
+                        );
+                      },
+                    ),
                     EcommerceHorizontalProductList(products: products),
                     const SizedBox(height: 24),
                   ],

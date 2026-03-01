@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/buttons/app_button.dart';
+import '../../data/models/product_model.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 
@@ -189,6 +191,8 @@ class _OrdersViewState extends State<OrdersView> with TickerProviderStateMixin {
               'cancelled orders...',
             ],
             onSearchChanged: (val) => debugPrint('Searching orders: $val'),
+            currentBottomBarIndex: 2,
+            enableTobaccoRedirect: false,
           ),
 
           if (_hasOrders) ...[
@@ -239,7 +243,13 @@ class _OrdersViewState extends State<OrdersView> with TickerProviderStateMixin {
               child: EcommerceSectionTitle(
                 title: _hasOrders ? 'Buy Again' : 'Recommended for you',
                 actionText: 'See All',
-                onActionTap: () {},
+                onActionTap: () {
+                  ProductListingCoordinator.instance.openListing(
+                    context,
+                    category: ProductCategory.grocery,
+                    currentBottomBarIndex: 2,
+                  );
+                },
               ),
             ),
           ),

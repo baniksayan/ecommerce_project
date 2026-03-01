@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../searchbar/app_search_bar.dart';
 import '../buttons/cart_icon_button.dart';
+import '../../core/tobacco/tobacco_keyword_matcher.dart';
+import '../../core/tobacco/tobacco_search_redirector.dart';
 
 class PrimarySliverAppBar extends StatelessWidget {
   final String searchHintText;
@@ -9,6 +11,7 @@ class PrimarySliverAppBar extends StatelessWidget {
   final ValueChanged<String>? onSearchChanged;
   final int? cartItemCount;
   final int currentBottomBarIndex;
+  final bool enableTobaccoRedirect;
 
   const PrimarySliverAppBar({
     super.key,
@@ -18,6 +21,7 @@ class PrimarySliverAppBar extends StatelessWidget {
     this.onSearchChanged,
     this.cartItemCount,
     this.currentBottomBarIndex = 0,
+    this.enableTobaccoRedirect = true,
   });
 
   @override
@@ -49,7 +53,30 @@ class PrimarySliverAppBar extends StatelessWidget {
                   hintText: searchHintText,
                   staticPrefix: searchStaticPrefix,
                   animatedHints: searchAnimatedHints,
-                  onChanged: onSearchChanged,
+                  onChanged: (q) {
+                    if (enableTobaccoRedirect &&
+                        TobaccoKeywordMatcher.isTobaccoQuery(q)) {
+                      TobaccoSearchRedirector.maybeRedirect(
+                        context,
+                        q,
+                        currentBottomBarIndex: currentBottomBarIndex,
+                      );
+                      return;
+                    }
+                    onSearchChanged?.call(q);
+                  },
+                  onSubmitted: (q) {
+                    if (enableTobaccoRedirect &&
+                        TobaccoKeywordMatcher.isTobaccoQuery(q)) {
+                      TobaccoSearchRedirector.maybeRedirect(
+                        context,
+                        q,
+                        currentBottomBarIndex: currentBottomBarIndex,
+                      );
+                      return;
+                    }
+                    onSearchChanged?.call(q);
+                  },
                 ),
               ),
             ),

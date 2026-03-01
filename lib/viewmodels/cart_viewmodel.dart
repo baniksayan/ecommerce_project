@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../core/cart/cart_pricing.dart';
 import '../data/models/cart_item_model.dart';
 import '../data/repositories/cart_repository.dart';
 import 'base_viewmodel.dart';
@@ -7,14 +8,6 @@ import 'base_viewmodel.dart';
 class CartViewModel extends BaseViewModel {
   final CartRepository _repository;
   StreamSubscription<List<CartItemModel>>? _sub;
-
-  static const double freeDeliveryThreshold = 99.0;
-  static const double smallOrderThreshold = 49.0;
-  static const double deliveryChargeThreshold = 19.0;
-
-  static const double deliveryChargeAmount = 30.0;
-  static const double smallOrderSurchargeAmount = 20.0;
-  static const double handlingChargeAmount = 10.0;
 
   List<CartItemModel> _items = const [];
   List<CartItemModel> get items => _items;
@@ -50,24 +43,29 @@ class CartViewModel extends BaseViewModel {
   /// Pricing rules:
   /// - Subtotal >= 99: delivery is free + 10 handling charge
   /// - 49 <= Subtotal < 99: +20 small-order surcharge
-  /// - Subtotal > 19: +30 delivery charge (unless Subtotal >= 99)
+  /// - Subtotal >= 19: +30 delivery charge (unless Subtotal >= 99)
   double get deliveryCharge {
     if (isEmpty) return 0.0;
-    if (subtotal >= freeDeliveryThreshold) return 0.0;
-    if (subtotal > deliveryChargeThreshold) return deliveryChargeAmount;
+    if (subtotal >= CartPricing.freeDeliveryThreshold) return 0.0;
+    if (subtotal >= CartPricing.deliveryChargeThreshold) {
+      return CartPricing.deliveryChargeAmount;
+    }
     return 0.0;
   }
 
   double get handlingCharge {
     if (isEmpty) return 0.0;
-    if (subtotal >= freeDeliveryThreshold) return handlingChargeAmount;
+    if (subtotal >= CartPricing.freeDeliveryThreshold) {
+      return CartPricing.handlingChargeAmount;
+    }
     return 0.0;
   }
 
   double get smallOrderSurcharge {
     if (isEmpty) return 0.0;
-    if (subtotal < freeDeliveryThreshold && subtotal >= smallOrderThreshold) {
-      return smallOrderSurchargeAmount;
+    if (subtotal < CartPricing.freeDeliveryThreshold &&
+        subtotal >= CartPricing.smallOrderThreshold) {
+      return CartPricing.smallOrderSurchargeAmount;
     }
     return 0.0;
   }

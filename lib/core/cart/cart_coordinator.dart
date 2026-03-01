@@ -22,6 +22,7 @@ class CartCoordinator {
   StreamSubscription<List<CartItemModel>>? _sub;
 
   final ValueNotifier<int> itemCount = ValueNotifier<int>(0);
+  final ValueNotifier<double> subtotal = ValueNotifier<double>(0.0);
 
   bool _initialized = false;
 
@@ -34,6 +35,12 @@ class CartCoordinator {
     _sub = _repository.watchItems().listen((items) {
       final count = items.fold<int>(0, (sum, e) => sum + e.quantity);
       itemCount.value = count;
+
+      final nextSubtotal = items.fold<double>(
+        0.0,
+        (sum, e) => sum + (e.unitPrice * e.quantity),
+      );
+      subtotal.value = nextSubtotal;
     });
   }
 
@@ -59,5 +66,6 @@ class CartCoordinator {
   Future<void> dispose() async {
     await _sub?.cancel();
     itemCount.dispose();
+    subtotal.dispose();
   }
 }

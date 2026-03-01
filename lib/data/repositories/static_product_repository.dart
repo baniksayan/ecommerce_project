@@ -19,7 +19,19 @@ class StaticProductRepository implements ProductRepository {
           final rating = p.rating ?? (4.1 + ((index % 6) * 0.1));
           final reviewCount = p.reviewCount ?? (85 + (index * 17));
 
-          return p.copyWith(rating: rating, reviewCount: reviewCount);
+          final isBestSeller = p.isBestSeller ?? (index % 5 == 0);
+          final isFastDelivery = p.isFastDelivery ?? (index % 3 != 0);
+
+          final int? stockLeft =
+              p.stockLeft ?? (index % 7 == 0 ? 3 : (index % 9 == 0 ? 5 : null));
+
+          return p.copyWith(
+            rating: rating,
+            reviewCount: reviewCount,
+            isBestSeller: isBestSeller,
+            isFastDelivery: isFastDelivery,
+            stockLeft: stockLeft,
+          );
         })
         .toList(growable: false);
   }
@@ -256,8 +268,7 @@ class StaticProductRepository implements ProductRepository {
         id: 'fresh-002',
         category: ProductCategory.fresh,
         name: 'Tomatoes 1kg',
-        imageUrl:
-            'https://images.unsplash.com/photo-1546470427-e9a6f144d6f9?auto=format&fit=crop&w=800&q=60',
+        imageUrl: 'https://picsum.photos/seed/fresh-002/800/800',
         price: 39,
         originalPrice: 49,
         discountTag: '20% OFF',
@@ -521,6 +532,128 @@ class StaticProductRepository implements ProductRepository {
         imageUrl:
             'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=800&q=60',
         price: 35,
+      ),
+    ],
+    ProductCategory.tobacco: [
+      ProductModel(
+        id: 'tob-001',
+        category: ProductCategory.tobacco,
+        name: 'Wills Navy Cut',
+        imageUrl:
+            'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=60',
+        price: 220,
+      ),
+      ProductModel(
+        id: 'tob-002',
+        category: ProductCategory.tobacco,
+        name: 'Wills Navy Cut Silver',
+        imageUrl:
+            'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=60',
+        price: 230,
+      ),
+      ProductModel(
+        id: 'tob-003',
+        category: ProductCategory.tobacco,
+        name: 'Wills Navy Cut Kings',
+        imageUrl:
+            'https://images.unsplash.com/photo-1518373714866-3f1478910cc0?auto=format&fit=crop&w=800&q=60',
+        price: 240,
+      ),
+      ProductModel(
+        id: 'tob-004',
+        category: ProductCategory.tobacco,
+        name: 'Gold Flake',
+        imageUrl:
+            'https://images.unsplash.com/photo-1563376274395-7b1da63b1078?auto=format&fit=crop&w=800&q=60',
+        price: 180,
+      ),
+      ProductModel(
+        id: 'tob-005',
+        category: ProductCategory.tobacco,
+        name: 'Gold Flake Kings',
+        imageUrl:
+            'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=60',
+        price: 200,
+      ),
+      ProductModel(
+        id: 'tob-006',
+        category: ProductCategory.tobacco,
+        name: 'Classic',
+        imageUrl:
+            'https://images.unsplash.com/photo-1518373714866-3f1478910cc0?auto=format&fit=crop&w=800&q=60',
+        price: 190,
+      ),
+      ProductModel(
+        id: 'tob-007',
+        category: ProductCategory.tobacco,
+        name: 'Classic Milds',
+        imageUrl:
+            'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=60',
+        price: 195,
+      ),
+      ProductModel(
+        id: 'tob-008',
+        category: ProductCategory.tobacco,
+        name: 'Four Square',
+        imageUrl:
+            'https://images.unsplash.com/photo-1563376274395-7b1da63b1078?auto=format&fit=crop&w=800&q=60',
+        price: 170,
+      ),
+      ProductModel(
+        id: 'tob-009',
+        category: ProductCategory.tobacco,
+        name: 'Red & White',
+        imageUrl:
+            'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=60',
+        price: 165,
+      ),
+      ProductModel(
+        id: 'tob-010',
+        category: ProductCategory.tobacco,
+        name: 'Cavanders',
+        imageUrl:
+            'https://images.unsplash.com/photo-1518373714866-3f1478910cc0?auto=format&fit=crop&w=800&q=60',
+        price: 210,
+      ),
+      ProductModel(
+        id: 'tob-011',
+        category: ProductCategory.tobacco,
+        name: 'Marlboro',
+        imageUrl:
+            'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=60',
+        price: 320,
+      ),
+      ProductModel(
+        id: 'tob-012',
+        category: ProductCategory.tobacco,
+        name: 'Silk Cut',
+        imageUrl:
+            'https://images.unsplash.com/photo-1563376274395-7b1da63b1078?auto=format&fit=crop&w=800&q=60',
+        price: 300,
+      ),
+      ProductModel(
+        id: 'tob-013',
+        category: ProductCategory.tobacco,
+        name: 'Tipper',
+        imageUrl:
+            'https://images.unsplash.com/photo-1518373714866-3f1478910cc0?auto=format&fit=crop&w=800&q=60',
+        price: 120,
+      ),
+      ProductModel(
+        id: 'tob-014',
+        category: ProductCategory.tobacco,
+        name: 'Charminar',
+        imageUrl:
+            'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=800&q=60',
+        price: 160,
+      ),
+      ProductModel(
+        id: 'tob-015',
+        category: ProductCategory.tobacco,
+        name: 'Small Gold Flake',
+        imageUrl:
+            'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=60',
+        price: 110,
       ),
     ],
   };

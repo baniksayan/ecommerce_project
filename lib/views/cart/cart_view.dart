@@ -6,14 +6,16 @@ import '../../common/buttons/app_button.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/cards/app_card.dart';
 import '../../common/dialogs/app_dialog.dart';
-import '../../common/snackbars/app_snackbar.dart';
+import '../../core/cart/cart_pricing.dart';
 import '../../core/location/address_location_coordinator.dart';
+import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
 import '../../core/wishlist/wishlist_coordinator.dart';
 import '../../data/models/address_models.dart';
 import '../../data/models/cart_item_model.dart';
+import '../../data/models/product_model.dart';
 import '../../data/models/wishlist_item_model.dart';
 import '../../data/repositories/hive_cart_repository.dart';
 import '../../viewmodels/cart_viewmodel.dart';
@@ -337,7 +339,13 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                       EcommerceSectionTitle(
                         title: 'Recommended for you',
                         actionText: 'See All',
-                        onActionTap: () {},
+                        onActionTap: () {
+                          ProductListingCoordinator.instance.openListing(
+                            context,
+                            category: ProductCategory.grocery,
+                            currentBottomBarIndex: widget.currentBottomBarIndex,
+                          );
+                        },
                       ),
                       SizedBox(
                         height: 260,
@@ -368,10 +376,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                                     quantity: 1,
                                   ),
                                 );
-                                AppSnackbar.success(
-                                  context,
-                                  '${item['title']} added to cart',
-                                );
+                               
                               },
                             );
                           },
@@ -436,10 +441,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                                   onRemove: () async {
                                     await _vm.remove(item.productId);
                                     if (!context.mounted) return;
-                                    AppSnackbar.destructive(
-                                      context,
-                                      '${item.name} removed from cart',
-                                    );
+                                    
                                   },
                                 );
                               }, childCount: listChildCount),
@@ -479,32 +481,30 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                                       HapticFeedback.selectionClick();
                                       final s = AppCurrency.symbol;
 
-                                      final freeDelivery = CartViewModel
+                                      final freeDelivery = CartPricing
                                           .freeDeliveryThreshold
                                           .toStringAsFixed(0);
-                                      final smallOrder = CartViewModel
+                                      final smallOrder = CartPricing
                                           .smallOrderThreshold
                                           .toStringAsFixed(0);
-                                      final deliveryFrom =
-                                          (CartViewModel
-                                                      .deliveryChargeThreshold +
-                                                  1)
-                                              .toStringAsFixed(0);
-                                      final smallOrderMax =
-                                          (CartViewModel.smallOrderThreshold -
-                                                  1)
-                                              .toStringAsFixed(0);
                                       final freeDeliveryMax =
-                                          (CartViewModel.freeDeliveryThreshold -
-                                                  1)
-                                              .toStringAsFixed(0);
-                                      final deliveryCharge = CartViewModel
+                                          (CartPricing.freeDeliveryThreshold -
+                                                  0.01)
+                                              .toStringAsFixed(2);
+                                      final smallOrderMax =
+                                          (CartPricing.smallOrderThreshold -
+                                                  0.01)
+                                              .toStringAsFixed(2);
+                                      final deliveryFrom = CartPricing
+                                          .deliveryChargeThreshold
+                                          .toStringAsFixed(0);
+                                      final deliveryCharge = CartPricing
                                           .deliveryChargeAmount
                                           .toStringAsFixed(0);
-                                      final smallOrderCharge = CartViewModel
+                                      final smallOrderCharge = CartPricing
                                           .smallOrderSurchargeAmount
                                           .toStringAsFixed(0);
-                                      final handlingCharge = CartViewModel
+                                      final handlingCharge = CartPricing
                                           .handlingChargeAmount
                                           .toStringAsFixed(0);
 

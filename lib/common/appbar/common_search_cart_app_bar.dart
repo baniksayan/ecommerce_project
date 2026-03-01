@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../core/utils/platform_helper.dart';
 import '../../common/buttons/cart_icon_button.dart';
 import '../../common/searchbar/app_search_bar.dart';
+import '../../core/tobacco/tobacco_keyword_matcher.dart';
+import '../../core/tobacco/tobacco_search_redirector.dart';
 
 class CommonSearchCartAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -14,6 +16,7 @@ class CommonSearchCartAppBar extends StatelessWidget
   final int currentBottomBarIndex;
   final bool showBackButton;
   final VoidCallback? onBackPress;
+  final bool enableTobaccoRedirect;
 
   const CommonSearchCartAppBar({
     super.key,
@@ -24,6 +27,7 @@ class CommonSearchCartAppBar extends StatelessWidget
     this.currentBottomBarIndex = 0,
     this.showBackButton = true,
     this.onBackPress,
+    this.enableTobaccoRedirect = true,
   });
 
   @override
@@ -48,7 +52,30 @@ class CommonSearchCartAppBar extends StatelessWidget
         hintText: searchHintText,
         staticPrefix: searchStaticPrefix,
         animatedHints: searchAnimatedHints,
-        onChanged: onSearchChanged,
+        onChanged: (q) {
+          if (enableTobaccoRedirect &&
+              TobaccoKeywordMatcher.isTobaccoQuery(q)) {
+            TobaccoSearchRedirector.maybeRedirect(
+              context,
+              q,
+              currentBottomBarIndex: currentBottomBarIndex,
+            );
+            return;
+          }
+          onSearchChanged?.call(q);
+        },
+        onSubmitted: (q) {
+          if (enableTobaccoRedirect &&
+              TobaccoKeywordMatcher.isTobaccoQuery(q)) {
+            TobaccoSearchRedirector.maybeRedirect(
+              context,
+              q,
+              currentBottomBarIndex: currentBottomBarIndex,
+            );
+            return;
+          }
+          onSearchChanged?.call(q);
+        },
       ),
     );
 

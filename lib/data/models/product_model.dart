@@ -1,6 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-enum ProductCategory { grocery, beauty, shoes, fresh, snacks, drinks, dairy }
+enum ProductCategory {
+  grocery,
+  beauty,
+  shoes,
+  fresh,
+  snacks,
+  drinks,
+  dairy,
+  tobacco,
+}
 
 extension ProductCategoryX on ProductCategory {
   String get displayName {
@@ -19,6 +28,8 @@ extension ProductCategoryX on ProductCategory {
         return 'Drinks';
       case ProductCategory.dairy:
         return 'Dairy';
+      case ProductCategory.tobacco:
+        return 'Paan Corner';
     }
   }
 
@@ -38,6 +49,8 @@ extension ProductCategoryX on ProductCategory {
         return 'drinks';
       case ProductCategory.dairy:
         return 'dairy';
+      case ProductCategory.tobacco:
+        return 'tobacco products';
     }
   }
 }
@@ -53,6 +66,9 @@ class ProductModel {
   final String? discountTag;
   final double? rating;
   final int? reviewCount;
+  final int? stockLeft;
+  final bool? isFastDelivery;
+  final bool? isBestSeller;
 
   const ProductModel({
     required this.id,
@@ -64,6 +80,9 @@ class ProductModel {
     this.discountTag,
     this.rating,
     this.reviewCount,
+    this.stockLeft,
+    this.isFastDelivery,
+    this.isBestSeller,
   });
 
   bool get hasDiscount =>
@@ -79,6 +98,9 @@ class ProductModel {
     String? discountTag,
     double? rating,
     int? reviewCount,
+    int? stockLeft,
+    bool? isFastDelivery,
+    bool? isBestSeller,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -90,6 +112,9 @@ class ProductModel {
       discountTag: discountTag ?? this.discountTag,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
+      stockLeft: stockLeft ?? this.stockLeft,
+      isFastDelivery: isFastDelivery ?? this.isFastDelivery,
+      isBestSeller: isBestSeller ?? this.isBestSeller,
     );
   }
 }
