@@ -17,9 +17,9 @@ Future<void> main() async {
 
   runApp(
     DevicePreview(
-      enabled: true,
+      // enabled: true,
 
-      // enabled: false,
+      enabled: false,
       builder: (context) => const EnchantedForestApp(),
     ),
   );

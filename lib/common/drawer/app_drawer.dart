@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../data/models/product_model.dart';
+import '../../views/product_listing/product_listing_view.dart';
 import '../../views/contact_us/contact_us_view.dart';
 import '../image_viewer/zoomable_image_viewer.dart';
 
@@ -322,38 +324,122 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                 _buildSectionTitle(context, 'Categories'),
                 _buildDrawerItem(
                   context,
-                  title: 'Groceries',
+                  title: 'Grocery',
                   icon: Icons.local_grocery_store_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.grocery,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   title: 'Beauty',
                   icon: Icons.face_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.beauty,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   title: 'Shoes',
                   icon: Icons.snowshoeing_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.shoes,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
-                  title: 'Fresh Items',
+                  title: 'Fresh',
                   icon: Icons.eco_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.fresh,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   title: 'Snacks',
                   icon: Icons.fastfood_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.snacks,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   title: 'Drinks',
                   icon: Icons.local_drink_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.drinks,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   title: 'Dairy',
                   icon: Icons.egg_alt_outlined,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      ProductListingView.route(
+                        category: ProductCategory.dairy,
+                        currentBottomBarIndex:
+                            widget.currentBottomBarIndex ?? 0,
+                      ),
+                    );
+                  },
                 ),
 
                 _buildSectionTitle(context, 'Utilities'),

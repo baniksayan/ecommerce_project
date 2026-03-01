@@ -5,6 +5,8 @@ import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/snackbars/app_snackbar.dart';
 import '../../core/cart/cart_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
+import '../../data/models/product_model.dart';
+import '../product_listing/product_listing_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -215,37 +217,86 @@ class _HomeViewState extends State<HomeView> {
                     EcommerceCategoryItem(
                       label: 'Grocery',
                       icon: Icons.local_grocery_store,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.grocery,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Beauty',
                       icon: Icons.face,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.beauty,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Shoes',
                       icon: Icons.snowshoeing,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.shoes,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Fresh',
                       icon: Icons.eco,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.fresh,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Snacks',
                       icon: Icons.fastfood,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.snacks,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Drinks',
                       icon: Icons.local_drink,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.drinks,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                     EcommerceCategoryItem(
                       label: 'Dairy',
                       icon: Icons.egg_alt,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          ProductListingView.route(
+                            category: ProductCategory.dairy,
+                            currentBottomBarIndex: 0,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
