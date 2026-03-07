@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +21,7 @@ import '../../data/repositories/static_product_repository.dart';
 import '../../viewmodels/product_listing_viewmodel.dart';
 import '../main/main_view.dart';
 import '../product_details/product_details_view.dart';
+import 'widgets/product_listing_skeleton.dart';
 
 class ProductListingView extends StatefulWidget {
   final ProductCategory category;
@@ -56,6 +59,11 @@ class _ProductListingViewState extends State<ProductListingView> {
   late final ProductListingViewModel _vm;
   late final ScrollController _scrollController;
 
+  // Skeleton stays visible for a minimum of 1.8 s (static timing).
+  // Switch to API loading duration once live network calls are in place.
+  bool _skeletonVisible = true;
+  Timer? _skeletonTimer;
+
   bool get _canPop => ModalRoute.of(context)?.canPop ?? false;
 
   @override
@@ -75,6 +83,11 @@ class _ProductListingViewState extends State<ProductListingView> {
     }
 
     _vm.load();
+
+    // Enforce minimum skeleton visibility so the shimmer is readable
+    _skeletonTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) setState(() => _skeletonVisible = false);
+    });
   }
 
   void _onScroll() {
@@ -88,6 +101,7 @@ class _ProductListingViewState extends State<ProductListingView> {
 
   @override
   void dispose() {
+    _skeletonTimer?.cancel();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -330,27 +344,27 @@ class _ProductListingViewState extends State<ProductListingView> {
                           const SizedBox(height: 2),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: _QuickChipsRow(
-                              selected: _vm.quickFilter,
-                              onSelected: (f) {
-                                HapticFeedback.selectionClick();
-                                _vm.setQuickFilter(f);
-                              },
-                              onSortTap: () {
-                                HapticFeedback.selectionClick();
-                                _openSortPicker();
-                              },
-                            ),
+                            child: _skeletonVisible
+                                ? const ProductListingChipsSkeleton()
+                                : _QuickChipsRow(
+                                    selected: _vm.quickFilter,
+                                    onSelected: (f) {
+                                      HapticFeedback.selectionClick();
+                                      _vm.setQuickFilter(f);
+                                    },
+                                    onSortTap: () {
+                                      HapticFeedback.selectionClick();
+                                      _openSortPicker();
+                                    },
+                                  ),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  if (_vm.isLoading)
-                    const SliverFillRemaining(
-                      child: Center(child: CircularProgressIndicator()),
-                    )
+                  if (_vm.isLoading || _skeletonVisible)
+                    const ProductListingSkeletonSliver()
                   else if (_vm.hasError)
                     SliverFillRemaining(
                       hasScrollBody: false,

@@ -9,6 +9,7 @@ import '../../common/buttons/app_button.dart';
 import '../../data/models/product_model.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
+import '../product_details/product_details_view.dart';
 
 // ─────────────────────────────────────────────
 //  DATA MODELS
@@ -270,7 +271,22 @@ class _OrdersViewState extends State<OrdersView> with TickerProviderStateMixin {
                     price: item['price'],
                     rating: item['rating'],
                     reviewCount: item['reviewCount'],
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        ProductDetailsView.route(
+                          product: ProductModel(
+                            id: item['title'] as String,
+                            category: ProductCategory.grocery,
+                            name: item['title'] as String,
+                            imageUrl: item['imageUrl'] as String,
+                            price: item['price'] as double,
+                            rating: item['rating'] as double?,
+                            reviewCount: item['reviewCount'] as int?,
+                          ),
+                          currentBottomBarIndex: 2,
+                        ),
+                      );
+                    },
                     onAddToCart: () {},
                   );
                 },

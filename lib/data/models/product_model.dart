@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'product_review_model.dart';
+
 enum ProductCategory {
   grocery,
   beauty,
@@ -66,6 +68,7 @@ class ProductModel {
   final String? discountTag;
   final double? rating;
   final int? reviewCount;
+  final List<ProductReviewModel> reviews;
   final int? stockLeft;
   final bool? isFastDelivery;
   final bool? isBestSeller;
@@ -80,6 +83,7 @@ class ProductModel {
     this.discountTag,
     this.rating,
     this.reviewCount,
+    this.reviews = const [],
     this.stockLeft,
     this.isFastDelivery,
     this.isBestSeller,
@@ -98,6 +102,7 @@ class ProductModel {
     String? discountTag,
     double? rating,
     int? reviewCount,
+    List<ProductReviewModel>? reviews,
     int? stockLeft,
     bool? isFastDelivery,
     bool? isBestSeller,
@@ -112,6 +117,7 @@ class ProductModel {
       discountTag: discountTag ?? this.discountTag,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
+      reviews: reviews ?? this.reviews,
       stockLeft: stockLeft ?? this.stockLeft,
       isFastDelivery: isFastDelivery ?? this.isFastDelivery,
       isBestSeller: isBestSeller ?? this.isBestSeller,

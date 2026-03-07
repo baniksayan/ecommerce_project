@@ -1,3 +1,4 @@
+import '../models/product_review_model.dart';
 import '../models/product_model.dart';
 import 'product_repository.dart';
 
@@ -16,8 +17,11 @@ class StaticProductRepository implements ProductRepository {
           final index = entry.key;
           final p = entry.value;
 
-          final rating = p.rating ?? (4.1 + ((index % 6) * 0.1));
-          final reviewCount = p.reviewCount ?? (85 + (index * 17));
+          final reviews = p.reviews.isNotEmpty
+              ? p.reviews
+              : _buildReviews(p, index);
+          final rating = reviews.isEmpty ? p.rating : _averageRating(reviews);
+          final reviewCount = reviews.length;
 
           final isBestSeller = p.isBestSeller ?? (index % 5 == 0);
           final isFastDelivery = p.isFastDelivery ?? (index % 3 != 0);
@@ -28,6 +32,7 @@ class StaticProductRepository implements ProductRepository {
           return p.copyWith(
             rating: rating,
             reviewCount: reviewCount,
+            reviews: reviews,
             isBestSeller: isBestSeller,
             isFastDelivery: isFastDelivery,
             stockLeft: stockLeft,
@@ -657,4 +662,84 @@ class StaticProductRepository implements ProductRepository {
       ),
     ],
   };
+
+  static List<ProductReviewModel> _buildReviews(
+    ProductModel product,
+    int index,
+  ) {
+    final reviewCount = 1 + ((product.category.index + index) % 6);
+
+    return List.generate(reviewCount, (reviewIndex) {
+      final seed = product.category.index + index + reviewIndex;
+      final rating =
+          _ratingSequences[seed % _ratingSequences.length][reviewIndex %
+              _ratingSequences[seed % _ratingSequences.length].length];
+      final quality = _qualityPhrases[seed % _qualityPhrases.length];
+      final delivery = _deliveryPhrases[(seed + 2) % _deliveryPhrases.length];
+      final useCase = _useCasePhrases[(seed + 4) % _useCasePhrases.length];
+
+      return ProductReviewModel(
+        name: _reviewerNames[(seed * 3) % _reviewerNames.length],
+        rating: rating,
+        text: '${product.name} was $quality. $delivery $useCase',
+        isVerified: (seed % 4) != 0,
+        daysAgo: 2 + (reviewIndex * 4) + (index * 2),
+      );
+    });
+  }
+
+  static double _averageRating(List<ProductReviewModel> reviews) {
+    if (reviews.isEmpty) return 0;
+    final total = reviews.fold<int>(0, (sum, review) => sum + review.rating);
+    return double.parse((total / reviews.length).toStringAsFixed(1));
+  }
+
+  static const List<String> _reviewerNames = [
+    'Alexander Doe',
+    'Sayan Banik',
+    'Priya Sharma',
+    'Marcus Johnson',
+    'Fatima Al-Hassan',
+    'Li Wei',
+    'Emma Thompson',
+    'Raj Patel',
+    'Sofia Rodriguez',
+    "James O'Brien",
+    'Aisha Okonkwo',
+    'Daniel Kim',
+  ];
+
+  static const List<List<int>> _ratingSequences = [
+    [5, 5, 4, 5, 4, 5],
+    [4, 4, 5, 4, 3, 4],
+    [5, 4, 5, 3, 4, 5],
+    [4, 5, 4, 4, 5, 3],
+    [5, 5, 5, 4, 4, 5],
+    [3, 4, 4, 5, 4, 3],
+  ];
+
+  static const List<String> _qualityPhrases = [
+    'fresh and exactly as described',
+    'good quality for the price',
+    'well packed and in great condition',
+    'consistent with previous orders',
+    'better than expected for everyday use',
+    'solid overall and worth reordering',
+  ];
+
+  static const List<String> _deliveryPhrases = [
+    'Delivery was quick and smooth.',
+    'It arrived on time with careful packaging.',
+    'The order reached me faster than expected.',
+    'Packaging held up well during delivery.',
+    'Everything arrived in good shape.',
+  ];
+
+  static const List<String> _useCasePhrases = [
+    'I would order this again.',
+    'Works well for weekly shopping.',
+    'It fit perfectly into my regular routine.',
+    'This felt reliable from the first order.',
+    'Easy recommendation if you buy this category often.',
+  ];
 }

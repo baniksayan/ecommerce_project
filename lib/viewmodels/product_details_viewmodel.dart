@@ -42,6 +42,12 @@ class ProductDetailsViewModel extends BaseViewModel {
   List<ProductModel> _similarProducts = const [];
   List<ProductModel> get similarProducts => _similarProducts;
 
+  List<ProductModel> _recommendedProducts = const [];
+  List<ProductModel> get recommendedProducts => _recommendedProducts;
+
+  List<ProductModel> _categorySearchProducts = const [];
+  List<ProductModel> get categorySearchProducts => _categorySearchProducts;
+
   String get productDescription {
     // Static placeholder (API-ready): keep the UI independent of content source.
     return 'Fresh ${product.name.toLowerCase()} sourced locally.\n'
@@ -75,6 +81,18 @@ class ProductDetailsViewModel extends BaseViewModel {
       _similarProducts = all
           .where((p) => p.id != product.id)
           .take(6)
+          .toList(growable: false);
+
+      // Recommended — products from the next category in the enum ring
+      final allCategories = ProductCategory.values;
+      final nextCat =
+          allCategories[(product.category.index + 1) % allCategories.length];
+      final recommended = await _productRepository.getProducts(nextCat);
+      _recommendedProducts = recommended.take(6).toList(growable: false);
+
+      // Because you searched — full same-category catalog, exclude current
+      _categorySearchProducts = all
+          .where((p) => p.id != product.id)
           .toList(growable: false);
     } catch (_) {
       setError('Failed to load product.');

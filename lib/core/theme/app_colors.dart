@@ -27,6 +27,7 @@ class AppColors {
   static const Color lightError = Color(0xFFE53935);
   static const Color lightWarning = Color(0xFFFFB300);
   static const Color lightInfo = Color(0xFF1E88E5);
+  static const Color lightLowStock = Color(0xFFE65100);
 
   // Semantic Colors - Dark Theme
   static const Color darkBackground = black;
@@ -40,4 +41,11 @@ class AppColors {
   static const Color darkError = Color(0xFFEF5350);
   static const Color darkWarning = Color(0xFFFFCA28);
   static const Color darkInfo = Color(0xFF42A5F5);
+  static const Color darkLowStock = Color(0xFFFFB74D);
+
+  // Skeleton / Shimmer Colors
+  static const Color skeletonWithShimmerEffectDarkGrey = Color(0xFF2C332C);
+  static const Color skeletonWithShimmerEffectLightGrey = Color(0xFFD9E5D9);
+  static const Color skeletonWithShimmerEffectDarkWhite = Color(0xFF3E483E);
+  static const Color skeletonWithShimmerEffectWhite = Color(0xFFF3F9F3);
 }

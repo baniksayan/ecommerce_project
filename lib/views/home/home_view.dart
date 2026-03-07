@@ -7,6 +7,7 @@ import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/tobacco/tobacco_access_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
+import '../product_details/product_details_view.dart';
 import '../product_listing/product_listing_view.dart';
 
 class HomeView extends StatefulWidget {
@@ -152,7 +153,24 @@ class _HomeViewState extends State<HomeView> {
           discountTag: item['discountTag'] as String?,
           rating: item['rating'] as double?,
           reviewCount: item['reviewCount'] as int?,
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              ProductDetailsView.route(
+                product: ProductModel(
+                  id: '${item['title']}-${item['imageUrl']}',
+                  category: ProductCategory.grocery,
+                  name: item['title'] as String,
+                  imageUrl: item['imageUrl'] as String,
+                  price: item['price'] as double,
+                  originalPrice: item['originalPrice'] as double?,
+                  discountTag: item['discountTag'] as String?,
+                  rating: item['rating'] as double?,
+                  reviewCount: item['reviewCount'] as int?,
+                ),
+                currentBottomBarIndex: 0,
+              ),
+            );
+          },
           onAddToCart: () {
             CartCoordinator.instance.addItem(
               CartItemModel(
