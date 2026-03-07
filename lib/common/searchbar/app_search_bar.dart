@@ -35,12 +35,17 @@ class AppSearchBar extends StatefulWidget {
 
 class _AppSearchBarState extends State<AppSearchBar> {
   Timer? _debounceTimer;
+  Timer? _typewriterTimer;
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
   bool _isTypingActive = false;
   int _currentHintIndex = 0;
   String _currentHintText = '';
+
+  String? _typewriterTarget;
+  int _typewriterCharIndex = 0;
+  bool _typewriterDeleting = false;
 
   @override
   void initState() {
@@ -75,72 +80,85 @@ class _AppSearchBarState extends State<AppSearchBar> {
     });
   }
 
-  void _startTypewriter() async {
+  void _startTypewriter() {
     _isTypingActive = true;
-    while (_isTypingActive && mounted) {
-      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        continue;
-      }
+    _typewriterTimer?.cancel();
 
-      final hints = widget.animatedHints!;
-      if (_currentHintIndex >= hints.length) {
-        _currentHintIndex = 0;
-      }
+    final hints = widget.animatedHints;
+    if (hints == null || hints.isEmpty) return;
 
-      String target = hints[_currentHintIndex];
-      // Type forward
-      for (int i = 0; i <= target.length; i++) {
-        if (!mounted ||
-            !_isTypingActive ||
-            _focusNode.hasFocus ||
-            _controller.text.isNotEmpty) {
-          break;
-        }
-        setState(() {
-          _currentHintText =
-              (widget.staticPrefix ?? '') + target.substring(0, i);
-        });
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-
-      if (!mounted ||
-          !_isTypingActive ||
-          _focusNode.hasFocus ||
-          _controller.text.isNotEmpty) {
-        continue;
-      }
-
-      // Wait at the end
-      await Future.delayed(const Duration(milliseconds: 2000));
-
-      if (!mounted ||
-          !_isTypingActive ||
-          _focusNode.hasFocus ||
-          _controller.text.isNotEmpty) {
-        continue;
-      }
-
-      // Delete backward
-      for (int i = target.length; i >= 0; i--) {
-        if (!mounted ||
-            !_isTypingActive ||
-            _focusNode.hasFocus ||
-            _controller.text.isNotEmpty) {
-          break;
-        }
-        setState(() {
-          _currentHintText =
-              (widget.staticPrefix ?? '') + target.substring(0, i);
-        });
-        await Future.delayed(const Duration(milliseconds: 30));
-      }
-
-      if (!mounted || !_isTypingActive) break;
-      if (!_focusNode.hasFocus && _controller.text.isEmpty) {
-        _currentHintIndex = (_currentHintIndex + 1) % hints.length;
-      }
+    if (_currentHintIndex >= hints.length) {
+      _currentHintIndex = 0;
     }
+
+    _typewriterTarget = hints[_currentHintIndex];
+    _typewriterCharIndex = 0;
+    _typewriterDeleting = false;
+
+    _scheduleTypewriterTick(const Duration(milliseconds: 50));
+  }
+
+  void _scheduleTypewriterTick(Duration delay) {
+    _typewriterTimer?.cancel();
+    _typewriterTimer = Timer(delay, _onTypewriterTick);
+  }
+
+  void _onTypewriterTick() {
+    if (!mounted || !_isTypingActive) return;
+
+    // Pause the animation while the user is interacting.
+    if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+      if (_currentHintText != widget.hintText) {
+        setState(() => _currentHintText = widget.hintText);
+      }
+      _scheduleTypewriterTick(const Duration(milliseconds: 200));
+      return;
+    }
+
+    final hints = widget.animatedHints;
+    if (hints == null || hints.isEmpty) return;
+
+    if (_currentHintIndex >= hints.length) {
+      _currentHintIndex = 0;
+    }
+
+    final target = _typewriterTarget ?? hints[_currentHintIndex];
+    final prefix = widget.staticPrefix ?? '';
+
+    if (!_typewriterDeleting) {
+      // Typing forward
+      if (_typewriterCharIndex <= target.length) {
+        setState(() {
+          _currentHintText = prefix + target.substring(0, _typewriterCharIndex);
+        });
+        _typewriterCharIndex++;
+        _scheduleTypewriterTick(const Duration(milliseconds: 50));
+        return;
+      }
+
+      // Hold at the end
+      _typewriterDeleting = true;
+      _typewriterCharIndex = target.length;
+      _scheduleTypewriterTick(const Duration(milliseconds: 2000));
+      return;
+    }
+
+    // Deleting backward
+    if (_typewriterCharIndex >= 0) {
+      setState(() {
+        _currentHintText = prefix + target.substring(0, _typewriterCharIndex);
+      });
+      _typewriterCharIndex--;
+      _scheduleTypewriterTick(const Duration(milliseconds: 30));
+      return;
+    }
+
+    // Move to next hint
+    _currentHintIndex = (_currentHintIndex + 1) % hints.length;
+    _typewriterTarget = hints[_currentHintIndex];
+    _typewriterCharIndex = 0;
+    _typewriterDeleting = false;
+    _scheduleTypewriterTick(const Duration(milliseconds: 200));
   }
 
   void _onSearchChanged(String query) {
@@ -161,6 +179,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
   void dispose() {
     _isTypingActive = false;
     _debounceTimer?.cancel();
+    _typewriterTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();

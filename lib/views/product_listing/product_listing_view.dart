@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../common/bottombar/common_bottom_bar.dart';
+import '../../common/cards/product_grid_card.dart';
 import '../../common/buttons/cart_icon_button.dart';
 import '../../common/searchbar/app_search_bar.dart';
 import '../../core/cart/cart_coordinator.dart';
@@ -13,11 +14,11 @@ import '../../core/utils/app_currency.dart';
 import '../../core/utils/platform_helper.dart';
 import '../../core/tobacco/tobacco_keyword_matcher.dart';
 import '../../core/tobacco/tobacco_search_redirector.dart';
-import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/repositories/static_product_repository.dart';
 import '../../viewmodels/product_listing_viewmodel.dart';
 import '../main/main_view.dart';
+import '../product_details/product_details_view.dart';
 
 class ProductListingView extends StatefulWidget {
   final ProductCategory category;
@@ -366,8 +367,32 @@ class _ProductListingViewState extends State<ProductListingView> {
                         ),
                       ),
                     )
+                  else if (_vm.filteredProducts.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Text(
+                          'No products found',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    )
                   else
-                    _ProductGridSliver(products: _vm.filteredProducts),
+                    ProductGridSliver(
+                      products: _vm.filteredProducts,
+                      onProductTap: (p) {
+                        Navigator.of(context).push(
+                          ProductDetailsView.route(
+                            product: p,
+                            currentBottomBarIndex: widget.currentBottomBarIndex,
+                          ),
+                        );
+                      },
+                    ),
 
                   if (_vm.isLoadingMore)
                     const SliverToBoxAdapter(
@@ -426,61 +451,6 @@ class _ProductListingViewState extends State<ProductListingView> {
           ),
         );
       },
-    );
-  }
-}
-
-class _ProductGridSliver extends StatelessWidget {
-  final List<ProductModel> products;
-
-  const _ProductGridSliver({required this.products});
-
-  @override
-  Widget build(BuildContext context) {
-    if (products.isEmpty) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Text(
-            'No products found',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.58,
-        ),
-        delegate: SliverChildBuilderDelegate((context, index) {
-          final p = products[index];
-          return _ProductGridCard(
-            key: ValueKey(p.id),
-            product: p,
-            onAddToCart: () {
-              CartCoordinator.instance.addItem(
-                CartItemModel(
-                  productId: p.id,
-                  name: p.name,
-                  imageUrl: p.imageUrl,
-                  unitPrice: p.price,
-                  quantity: 1,
-                ),
-              );
-            },
-          );
-        }, childCount: products.length),
-      ),
     );
   }
 }
@@ -656,350 +626,6 @@ class _FreeDeliveryCueBar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ProductGridCard extends StatefulWidget {
-  final ProductModel product;
-  final VoidCallback onAddToCart;
-
-  const _ProductGridCard({
-    super.key,
-    required this.product,
-    required this.onAddToCart,
-  });
-
-  @override
-  State<_ProductGridCard> createState() => _ProductGridCardState();
-}
-
-class _ProductGridCardState extends State<_ProductGridCard> {
-  bool _inCart = false;
-  bool _isWishlisted = false;
-  bool _justAddedPulse = false;
-
-  void _handleAddToCart() {
-    if (_inCart) return;
-    HapticFeedback.heavyImpact();
-    setState(() => _inCart = true);
-    _pulseAdded();
-    widget.onAddToCart();
-  }
-
-  void _pulseAdded() {
-    if (!mounted) return;
-    setState(() => _justAddedPulse = true);
-    Future<void>.delayed(const Duration(milliseconds: 140), () {
-      if (!mounted) return;
-      setState(() => _justAddedPulse = false);
-    });
-  }
-
-  void _toggleWishlist() {
-    HapticFeedback.heavyImpact();
-    setState(() => _isWishlisted = !_isWishlisted);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final onSurface = theme.colorScheme.onSurface;
-    final discountBase = isDark ? AppColors.darkError : AppColors.lightError;
-    final discountBg = discountBase.withValues(alpha: 0.92);
-    final wishlistActive = discountBase;
-    final warning = isDark ? AppColors.darkWarning : AppColors.lightWarning;
-    final fastDeliveryAccent = isDark
-        ? AppColors.darkSuccess
-        : AppColors.lightSuccess;
-    final fastDeliveryBg = theme.colorScheme.surface.withValues(alpha: 0.86);
-
-    final hasDiscount =
-        widget.product.originalPrice != null &&
-        widget.product.originalPrice! > widget.product.price;
-
-    final rating = widget.product.rating;
-    final reviewCount = widget.product.reviewCount;
-
-    final cardBase = theme.colorScheme.surfaceContainerHighest;
-    final cardRadius = BorderRadius.circular(20);
-    final cardBorder = theme.colorScheme.outlineVariant.withValues(
-      alpha: isDark ? 0.30 : 0.75,
-    );
-    final inCartBorder = theme.primaryColor.withValues(alpha: 0.55);
-
-    final inCartBg = Color.alphaBlend(
-      theme.primaryColor.withValues(alpha: isDark ? 0.18 : 0.10),
-      cardBase,
-    );
-
-    final bool showLowStock =
-        widget.product.stockLeft != null && widget.product.stockLeft! <= 5;
-    final bool showFastDelivery = widget.product.isFastDelivery == true;
-    final int nameMaxLines = (rating != null && showLowStock) ? 1 : 2;
-
-    Widget tagPill({
-      required String text,
-      required Color background,
-      required Color foreground,
-      Color? border,
-      EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
-    }) {
-      return Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(999),
-          border: border == null ? null : Border.all(color: border, width: 1),
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.caption.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
-    }
-
-    return AnimatedScale(
-      scale: _justAddedPulse ? 0.98 : 1.0,
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
-      child: Material(
-        color: _inCart ? inCartBg : cardBase,
-        elevation: isDark ? 1.2 : 2.0,
-        shadowColor: theme.shadowColor.withValues(alpha: isDark ? 0.55 : 0.28),
-        shape: RoundedRectangleBorder(
-          borderRadius: cardRadius,
-          side: BorderSide(color: _inCart ? inCartBorder : cardBorder),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {},
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: 1.08,
-                      child: Image.network(
-                        widget.product.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) => Container(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          child: Icon(
-                            Icons.image_not_supported,
-                            color: theme.disabledColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (widget.product.discountTag != null)
-                                tagPill(
-                                  text: widget.product.discountTag!,
-                                  background: discountBg,
-                                  foreground: theme.colorScheme.onError,
-                                ),
-                              const Spacer(),
-                              Material(
-                                color: theme.colorScheme.surface.withValues(
-                                  alpha: 0.80,
-                                ),
-                                shape: const CircleBorder(),
-                                child: InkResponse(
-                                  onTap: _toggleWishlist,
-                                  radius: 20,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Icon(
-                                      _isWishlisted
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      size: 18,
-                                      color: _isWishlisted
-                                          ? wishlistActive
-                                          : onSurface.withValues(alpha: 0.55),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          if (showFastDelivery)
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: tagPill(
-                                text: 'Fast Delivery',
-                                background: fastDeliveryBg,
-                                foreground: fastDeliveryAccent,
-                                border: fastDeliveryAccent.withValues(
-                                  alpha: 0.55,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.product.name,
-                        maxLines: nameMaxLines,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.05,
-                          color: onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (rating != null)
-                        Row(
-                          children: [
-                            Icon(Icons.star, size: 14, color: warning),
-                            const SizedBox(width: 4),
-                            Text(
-                              rating.toStringAsFixed(1),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: onSurface,
-                              ),
-                            ),
-                            if (reviewCount != null) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '($reviewCount)',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.disabledColor,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      if (showLowStock) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Only ${widget.product.stockLeft} left',
-                          style: AppTextStyles.caption.copyWith(
-                            color: discountBase,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  AppCurrency.format(widget.product.price),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.primaryColor,
-                                    height: 1.05,
-                                  ),
-                                ),
-                                if (hasDiscount)
-                                  Text(
-                                    AppCurrency.format(
-                                      widget.product.originalPrice!,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTextStyles.caption.copyWith(
-                                      decoration: TextDecoration.lineThrough,
-                                      color: theme.disabledColor,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          _AddToCartButton(
-                            inCart: _inCart,
-                            onTap: _handleAddToCart,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AddToCartButton extends StatelessWidget {
-  final bool inCart;
-  final VoidCallback onTap;
-
-  const _AddToCartButton({required this.inCart, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final radius = BorderRadius.circular(12);
-
-    return Material(
-      color: theme.primaryColor,
-      borderRadius: radius,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(
-            inCart
-                ? Icons.local_grocery_store
-                : Icons.local_grocery_store_outlined,
-            color: theme.colorScheme.onPrimary,
-            size: 20,
-          ),
-        ),
       ),
     );
   }

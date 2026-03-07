@@ -45,7 +45,28 @@ class CartCoordinator {
   }
 
   Future<void> addItem(CartItemModel item) async {
+    await init();
     await _repository.upsertItem(item);
+  }
+
+  Future<void> setQuantity(String productId, int quantity) async {
+    await init();
+    await _repository.setQuantity(productId, quantity);
+  }
+
+  Future<void> removeItem(String productId) async {
+    await init();
+    await _repository.removeItem(productId);
+  }
+
+  Future<List<CartItemModel>> getItems() async {
+    await init();
+    return _repository.getItems();
+  }
+
+  Stream<List<CartItemModel>> watchItems() async* {
+    await init();
+    yield* _repository.watchItems();
   }
 
   void openCart(BuildContext context, {int currentBottomBarIndex = 0}) {
