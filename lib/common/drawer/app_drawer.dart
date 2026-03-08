@@ -5,11 +5,16 @@ import 'package:mandal_variety/views/privacy_policy/privacy_policy_view.dart';
 import 'package:mandal_variety/views/terms_and_conditions/terms_and_conditions_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import '../../core/auth/auth_coordinator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/models/product_model.dart';
+import '../../views/auth/email_login_view.dart';
+import '../../views/onboarding/onboarding_view.dart';
 import '../../views/product_listing/product_listing_view.dart';
 import '../../views/contact_us/contact_us_view.dart';
+import '../dialogs/app_dialog.dart';
 import '../image_viewer/zoomable_image_viewer.dart';
 
 class AppDrawer extends StatefulWidget {
@@ -38,6 +43,8 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   late AnimationController _helpController;
   late Animation<double> _helpExpandAnim;
   late Animation<double> _helpRotateAnim;
+
+  String _appVersion = '';
 
   static const String _storeName = 'Mandal Variety';
 
@@ -115,6 +122,9 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = info.version);
+    });
     _faqsController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -151,7 +161,26 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     HapticFeedback.selectionClick();
   }
 
-  bool get _isGuest => false;
+  Future<void> _handleLogout(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    final confirmed = await AppDialog.showConfirm(
+      context: context,
+      title: 'Log out',
+      message: 'Are you sure you want to log out? You will need to verify your email again to access your account.',
+      confirmText: 'Log out',
+      cancelText: 'Cancel',
+      barrierDismissible: true,
+    );
+    if (confirmed != true) return;
+    await AuthCoordinator.instance.logout();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const OnboardingView()),
+      (route) => false,
+    );
+  }
+
+  bool get _isGuest => !AuthCoordinator.instance.isLoggedIn;
 
   Widget _buildProfileAvatar(BuildContext context, {double radius = 30}) {
     // If testing logged in state and no URL is provided, fallback to a mock handsome man image.
@@ -191,13 +220,71 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   Widget _buildDrawerHeader(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Test data for previewing the UI
-    final String displayUserName = widget.userName ?? 'Sayan';
+    if (_isGuest) {
+      return InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.pop(context);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const EmailLoginView(fromDrawer: true)),
+          );
+        },
+        child: Container(
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 24,
+            bottom: 24,
+            left: 20,
+            right: 20,
+          ),
+          color: theme.scaffoldBackgroundColor,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: AppColors.teaGreenSoft,
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  size: 32,
+                  color: AppColors.dustyOlive,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Hello, Guest',
+                      style: AppTextStyles.heading3.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Please login to access your account',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: theme.primaryColor,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-    final String titleText = _isGuest ? 'Guest User' : 'Hi, $displayUserName!';
-    final String subtitleText = _isGuest
-        ? 'Login or Sign up'
-        : 'View or edit your profile';
+    // ── Logged-in header ────────────────────────────────────────────────────
+    final String displayUserName = widget.userName ?? 'User';
 
     return Container(
       padding: EdgeInsets.only(
@@ -218,19 +305,16 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  titleText,
+                  'Hi, $displayUserName!',
                   style: AppTextStyles.heading3.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 GestureDetector(
-                  onTap: () => _handleTap(
-                    context,
-                    _isGuest ? 'Login/Signup Clicked' : 'View Profile Clicked',
-                  ),
+                  onTap: () => _handleTap(context, 'View Profile Clicked'),
                   child: Text(
-                    subtitleText,
+                    'View or edit your profile',
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: theme.primaryColor,
                       fontWeight: FontWeight.w600,
@@ -304,7 +388,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isGuest = widget.userName == null;
+    final isGuest = _isGuest;
 
     return Drawer(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -714,7 +798,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                     context,
                     title: 'Logout',
                     icon: Icons.logout,
-                    isDestructive: true,
+                    onTap: () => _handleLogout(context),
                   ),
                 ],
               ],
@@ -727,7 +811,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
               child: Center(
                 child: Text(
-                  'App Version 1.0.0',
+                  _appVersion.isEmpty ? 'App Version will be shown soon' : 'App Version $_appVersion',
                   style: AppTextStyles.caption.copyWith(
                     color: theme.disabledColor,
                   ),
