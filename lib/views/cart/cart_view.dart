@@ -25,6 +25,21 @@ import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_details/product_details_view.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 class CartView extends StatefulWidget {
   final int currentBottomBarIndex;
 
@@ -863,14 +878,14 @@ class _ProductImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = imageUrl;
     if (url == null || url.trim().isEmpty) {
-      return Image.asset('assets/logo/mandal_logo.png', fit: BoxFit.cover);
+      return Image.asset(_fallbackImageAsset, fit: BoxFit.cover);
     }
 
-    return Image.network(
-      url,
+    return Image(
+      image: _resolveImageProvider(url),
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
-        return Image.asset('assets/logo/mandal_logo.png', fit: BoxFit.cover);
+        return Image.asset(_fallbackImageAsset, fit: BoxFit.cover);
       },
     );
   }

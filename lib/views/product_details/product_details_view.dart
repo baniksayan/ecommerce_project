@@ -28,6 +28,21 @@ import '../product_listing/product_listing_view.dart';
 import 'reviews_view.dart';
 import 'widgets/product_details_skeleton.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ProductDetailsView
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -401,8 +416,10 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       pageController: _pageController,
       activeIndex: _activeImageIndex,
       onPageChanged: (i) => setState(() => _activeImageIndex = i),
-      onZoomTap: (url) =>
-          ZoomableImageViewer.show(context, imageProvider: NetworkImage(url)),
+      onZoomTap: (url) => ZoomableImageViewer.show(
+        context,
+        imageProvider: _resolveImageProvider(url),
+      ),
       isWishlisted: _vm.isWishlisted,
       wishlistPulse: _wishlistPulse,
       onWishlistTap: _handleToggleWishlist,
@@ -1163,8 +1180,8 @@ class _ImageGallery extends StatelessWidget {
                         onTap: () => onZoomTap(url),
                         child: Hero(
                           tag: 'product_image_$url',
-                          child: Image.network(
-                            url,
+                          child: Image(
+                            image: _resolveImageProvider(url),
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Center(
                               child: Icon(

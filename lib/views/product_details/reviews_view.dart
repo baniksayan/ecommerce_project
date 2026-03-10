@@ -69,6 +69,7 @@ class _AllReviewsViewState extends State<AllReviewsView> {
     final theme = Theme.of(context);
     final dividerColor = theme.colorScheme.outline.withValues(alpha: 0.15);
     final reviews = _sortedReviews;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -131,7 +132,12 @@ class _AllReviewsViewState extends State<AllReviewsView> {
 
                 // ── Review cards ───────────────────────────────────────────
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    12,
+                    16,
+                    48 + bottomInset,
+                  ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (_, i) => Padding(

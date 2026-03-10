@@ -10,6 +10,21 @@ import '../../core/utils/app_currency.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 class ProductGridSliver extends StatelessWidget {
   final List<ProductModel> products;
   final EdgeInsetsGeometry padding;
@@ -238,8 +253,8 @@ class _ProductGridCardState extends State<ProductGridCard> {
                     ),
                     child: AspectRatio(
                       aspectRatio: 1.08,
-                      child: Image.network(
-                        widget.product.imageUrl,
+                      child: Image(
+                        image: _resolveImageProvider(widget.product.imageUrl),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stack) => Container(
                           color: theme.colorScheme.surfaceContainerHighest,

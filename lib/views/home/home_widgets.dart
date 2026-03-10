@@ -5,6 +5,21 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 class EcommerceSectionTitle extends StatefulWidget {
   final String title;
   final String? actionText;
@@ -197,7 +212,7 @@ class _EcommercePromoCarouselState extends State<EcommercePromoCarousel> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       image: DecorationImage(
-                        image: NetworkImage(widget.imageUrls[realIndex]),
+                        image: _resolveImageProvider(widget.imageUrls[realIndex]),
                         fit: BoxFit.cover,
                       ),
                       boxShadow: [
@@ -392,8 +407,8 @@ class _EcommerceProductCardState extends State<EcommerceProductCard> {
                   ),
                   child: AspectRatio(
                     aspectRatio: 1.12,
-                    child: Image.network(
-                      widget.imageUrl,
+                    child: Image(
+                      image: _resolveImageProvider(widget.imageUrl),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stack) => Container(
                         color: theme.colorScheme.surfaceContainerHighest,
@@ -609,7 +624,7 @@ class EcommerceOfferBanner extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           image: DecorationImage(
-            image: NetworkImage(imageUrl),
+            image: _resolveImageProvider(imageUrl),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(
               Colors.black.withValues(alpha: 0.4),

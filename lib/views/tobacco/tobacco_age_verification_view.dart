@@ -288,6 +288,7 @@ class _TobaccoAgeVerificationViewState
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.primaryColor;
     final onSurface = theme.colorScheme.onSurface;
+    final bottomContentSpacer = 112.0 + MediaQuery.viewPaddingOf(context).bottom;
 
     final today = MaterialLocalizations.of(
       context,
@@ -428,7 +429,7 @@ class _TobaccoAgeVerificationViewState
                 icon: Icons.lock_open_rounded,
               ),
             ),
-            const SizedBox(height: 100),
+            SizedBox(height: bottomContentSpacer),
           ],
         ),
       ),

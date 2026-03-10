@@ -17,6 +17,21 @@ import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_details/product_details_view.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 // ─────────────────────────────────────────────
 //  DATA MODEL
 // ─────────────────────────────────────────────
@@ -179,7 +194,6 @@ class _WishlistViewState extends State<WishlistView>
 
   void _addAllToCart() {
     HapticFeedback.heavyImpact();
-    final itemCount = _wishlistItems.length;
     for (final item in _wishlistItems) {
       CartCoordinator.instance.addItem(
         CartItemModel(
@@ -649,8 +663,8 @@ class _WishlistCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: Image.network(
-                    item.imageUrl,
+                  child: Image(
+                    image: _resolveImageProvider(item.imageUrl),
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,

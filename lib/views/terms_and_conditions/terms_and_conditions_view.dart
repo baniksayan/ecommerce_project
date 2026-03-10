@@ -305,6 +305,7 @@ class _TermsAndConditionsViewState extends State<TermsAndConditionsView> {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.primaryColor;
     final onSurface = theme.colorScheme.onSurface;
+    final bottomContentSpacer = 112.0 + MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
       extendBody: true,
@@ -401,7 +402,7 @@ class _TermsAndConditionsViewState extends State<TermsAndConditionsView> {
             // ── Footer acknowledgment ─────────────────────
             _FooterAcknowledgment(onSurface: onSurface),
             // Safe bottom padding for bottom bar
-            const SizedBox(height: 100),
+            SizedBox(height: bottomContentSpacer),
           ],
         ),
       ),

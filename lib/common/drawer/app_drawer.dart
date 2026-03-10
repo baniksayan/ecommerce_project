@@ -17,6 +17,21 @@ import '../../views/contact_us/contact_us_view.dart';
 import '../dialogs/app_dialog.dart';
 import '../image_viewer/zoomable_image_viewer.dart';
 
+const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
+
+bool _isUnsplashDemoUrl(String value) => value.contains('images.unsplash.com');
+
+bool _isHttpUrl(String value) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+ImageProvider _resolveImageProvider(String source) {
+  final value = source.trim();
+  if (value.isEmpty || _isUnsplashDemoUrl(value) || !_isHttpUrl(value)) {
+    return const AssetImage(_fallbackImageAsset);
+  }
+  return NetworkImage(value);
+}
+
 class AppDrawer extends StatefulWidget {
   final String? profilePicUrl;
   final String? userName; // If null, assume 'Guest User'
@@ -183,18 +198,17 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   bool get _isGuest => !AuthCoordinator.instance.isLoggedIn;
 
   Widget _buildProfileAvatar(BuildContext context, {double radius = 30}) {
-    // If testing logged in state and no URL is provided, fallback to a mock handsome man image.
     final String? effectivePicUrl = _isGuest
-        ? null
-        : (widget.profilePicUrl != null && widget.profilePicUrl!.isNotEmpty
-              ? widget.profilePicUrl!
-              : 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=387&auto=format&fit=crop');
+      ? null
+      : (widget.profilePicUrl != null && widget.profilePicUrl!.isNotEmpty
+          ? widget.profilePicUrl!
+          : null);
 
     final hasImage = effectivePicUrl != null;
     final avatar = CircleAvatar(
       radius: radius,
       backgroundColor: AppColors.teaGreenSoft,
-      backgroundImage: hasImage ? NetworkImage(effectivePicUrl) : null,
+      backgroundImage: hasImage ? _resolveImageProvider(effectivePicUrl) : null,
       child: hasImage
           ? null
           : Icon(Icons.person, size: radius * 1.2, color: AppColors.dustyOlive),
@@ -206,7 +220,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
           HapticFeedback.selectionClick();
           ZoomableImageViewer.show(
             context,
-            imageProvider: NetworkImage(effectivePicUrl),
+            imageProvider: _resolveImageProvider(effectivePicUrl),
             heroTag: 'profile_pic_zoom',
           );
         },
