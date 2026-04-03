@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'home_widgets.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
-import '../../core/cart/cart_coordinator.dart';
+import '../../common/cards/product_grid_card.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/tobacco/tobacco_access_coordinator.dart';
-import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../product_details/product_details_view.dart';
 import '../product_listing/product_listing_view.dart';
@@ -58,134 +57,111 @@ class _HomeViewState extends State<HomeView> {
     'Everyday Essentials',
   ];
 
-  final List<Map<String, dynamic>> _mockProducts = [
-    {
-      'imageUrl':
+  final List<ProductModel> _mockProducts = const [
+    ProductModel(
+      id: 'home-mock-1',
+      category: ProductCategory.grocery,
+      name: 'Sony Wireless Headphones',
+      imageUrl:
           'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-      'title': 'Sony Wireless Headphones',
-      'price': 99.99,
-      'originalPrice': 149.99,
-      'discountTag': '33% OFF',
-      'rating': 4.8,
-      'reviewCount': 124,
-    },
-    {
-      'imageUrl':
+      price: 99.99,
+      originalPrice: 149.99,
+      discountTag: '33% OFF',
+      rating: 4.8,
+      reviewCount: 124,
+    ),
+    ProductModel(
+      id: 'home-mock-2',
+      category: ProductCategory.grocery,
+      name: 'Smart Watch Series 6',
+      imageUrl:
           'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=400',
-      'title': 'Smart Watch Series 6',
-      'price': 199.99,
-      'originalPrice': 249.99,
-      'discountTag': '20% OFF',
-      'rating': 4.6,
-      'reviewCount': 382,
-    },
-    {
-      'imageUrl':
+      price: 199.99,
+      originalPrice: 249.99,
+      discountTag: '20% OFF',
+      rating: 4.6,
+      reviewCount: 382,
+    ),
+    ProductModel(
+      id: 'home-mock-3',
+      category: ProductCategory.grocery,
+      name: 'Casual Denim Jacket',
+      imageUrl:
           'https://images.unsplash.com/photo-1618366712010-f4ae9c647bcb?auto=format&fit=crop&q=80&w=400',
-      'title': 'Casual Denim Jacket',
-      'price': 45.00,
-      'originalPrice': 60.00,
-      'discountTag': '25% OFF',
-      'rating': 4.3,
-      'reviewCount': 89,
-    },
-    {
-      'imageUrl':
+      price: 45.0,
+      originalPrice: 60.0,
+      discountTag: '25% OFF',
+      rating: 4.3,
+      reviewCount: 89,
+    ),
+    ProductModel(
+      id: 'home-mock-4',
+      category: ProductCategory.grocery,
+      name: 'Classic Vans Sneakers',
+      imageUrl:
           'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&q=80&w=400',
-      'title': 'Classic Vans Sneakers',
-      'price': 59.99,
-      'rating': 4.7,
-      'reviewCount': 540,
-    },
-    {
-      'imageUrl':
+      price: 59.99,
+      rating: 4.7,
+      reviewCount: 540,
+    ),
+    ProductModel(
+      id: 'home-mock-5',
+      category: ProductCategory.grocery,
+      name: 'Minimalist Clock',
+      imageUrl:
           'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&q=80&w=400',
-      'title': 'Minimalist Clock',
-      'price': 24.50,
-      'rating': 4.5,
-      'reviewCount': 12,
-    },
-    {
-      'imageUrl':
+      price: 24.5,
+      rating: 4.5,
+      reviewCount: 12,
+    ),
+    ProductModel(
+      id: 'home-mock-6',
+      category: ProductCategory.grocery,
+      name: 'Leather Wallet',
+      imageUrl:
           'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=400',
-      'title': 'Leather Wallet',
-      'price': 35.00,
-      'rating': 4.9,
-      'reviewCount': 300,
-    },
-    {
-      'imageUrl':
+      price: 35.0,
+      rating: 4.9,
+      reviewCount: 300,
+    ),
+    ProductModel(
+      id: 'home-mock-7',
+      category: ProductCategory.grocery,
+      name: 'Premium Wireless Earbuds',
+      imageUrl:
           'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80&w=400',
-      'title': 'Premium Wireless Earbuds',
-      'price': 79.99,
-      'originalPrice': 129.99,
-      'discountTag': 'Save 50',
-      'rating': 4.6,
-      'reviewCount': 412,
-    },
-    {
-      'imageUrl':
+      price: 79.99,
+      originalPrice: 129.99,
+      discountTag: 'Save 50',
+      rating: 4.6,
+      reviewCount: 412,
+    ),
+    ProductModel(
+      id: 'home-mock-8',
+      category: ProductCategory.grocery,
+      name: 'Classic Sunglasses',
+      imageUrl:
           'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&q=80&w=400',
-      'title': 'Classic Sunglasses',
-      'price': 15.00,
-      'originalPrice': 40.00,
-      'discountTag': '62% OFF',
-      'rating': 4.2,
-      'reviewCount': 95,
-    },
+      price: 15.0,
+      originalPrice: 40.0,
+      discountTag: '62% OFF',
+      rating: 4.2,
+      reviewCount: 95,
+    ),
   ];
 
-  List<EcommerceProductCard> _generateProducts(
-    BuildContext context,
-    int sectionIndex,
-  ) {
-    // Generate a diverse, looping sequence based on the section
+  List<ProductModel> _generateProducts(int sectionIndex) {
     final start = (sectionIndex * 3) % _mockProducts.length;
-    final List<EcommerceProductCard> list = [];
-    for (int i = 0; i < 4; i++) {
-      final item = _mockProducts[(start + i) % _mockProducts.length];
-      list.add(
-        EcommerceProductCard(
-          imageUrl: item['imageUrl'] as String,
-          title: item['title'] as String,
-          price: item['price'] as double,
-          originalPrice: item['originalPrice'] as double?,
-          discountTag: item['discountTag'] as String?,
-          rating: item['rating'] as double?,
-          reviewCount: item['reviewCount'] as int?,
-          onTap: () {
-            Navigator.of(context).push(
-              ProductDetailsView.route(
-                product: ProductModel(
-                  id: '${item['title']}-${item['imageUrl']}',
-                  category: ProductCategory.grocery,
-                  name: item['title'] as String,
-                  imageUrl: item['imageUrl'] as String,
-                  price: item['price'] as double,
-                  originalPrice: item['originalPrice'] as double?,
-                  discountTag: item['discountTag'] as String?,
-                  rating: item['rating'] as double?,
-                  reviewCount: item['reviewCount'] as int?,
-                ),
-                currentBottomBarIndex: 0,
-              ),
-            );
-          },
-          onAddToCart: () {
-            CartCoordinator.instance.addItem(
-              CartItemModel(
-                productId: '${item['title']}-${item['imageUrl']}',
-                name: item['title'] as String,
-                imageUrl: item['imageUrl'] as String,
-                unitPrice: item['price'] as double,
-                quantity: 1,
-              ),
-            );
-          },
-        ),
+    final sectionTitle = _sectionTitles[sectionIndex % _sectionTitles.length];
+    final sectionCategory = _categoryForSectionTitle(sectionTitle);
+
+    return List.generate(4, (i) {
+      final base = _mockProducts[(start + i) % _mockProducts.length];
+      return base.copyWith(
+        id: '${base.id}-$sectionIndex-$i',
+        category: sectionCategory,
       );
-    }
-    return list;
+    });
   }
 
   ProductCategory _categoryForSectionTitle(String title) {
@@ -355,7 +331,7 @@ class _HomeViewState extends State<HomeView> {
                 final sectionIndex = index ~/ 2;
                 final title =
                     _sectionTitles[sectionIndex % _sectionTitles.length];
-                final products = _generateProducts(context, sectionIndex);
+                final products = _generateProducts(sectionIndex);
 
                 return Column(
                   children: [
@@ -369,7 +345,36 @@ class _HomeViewState extends State<HomeView> {
                         );
                       },
                     ),
-                    EcommerceHorizontalProductList(products: products),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: products.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 0.58,
+                            ),
+                        itemBuilder: (context, i) {
+                          final product = products[i];
+                          return ProductGridCard(
+                            key: ValueKey(product.id),
+                            product: product,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                ProductDetailsView.route(
+                                  product: product,
+                                  currentBottomBarIndex: 0,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 );

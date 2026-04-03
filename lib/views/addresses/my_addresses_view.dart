@@ -23,6 +23,8 @@ class MyAddressesView extends StatefulWidget {
 class _MyAddressesViewState extends State<MyAddressesView> {
   AddressCache? _cache;
   bool _loading = true;
+  bool _isLocating = false;
+  bool _locateErrorShown = false;
 
   @override
   void initState() {
@@ -181,6 +183,30 @@ class _MyAddressesViewState extends State<MyAddressesView> {
     }
   }
 
+  Future<void> _handleLocateMeAgain() async {
+    if (_isLocating) return;
+    HapticFeedback.selectionClick();
+    if (!mounted) return;
+    setState(() => _isLocating = true);
+
+    try {
+      await AddressLocationCoordinator.instance.locateMeAgain(context);
+      await _load();
+    } catch (_) {
+      if (mounted && !_locateErrorShown) {
+        _locateErrorShown = true;
+        AppSnackbar.error(context, 'Could not update location');
+        Future<void>.delayed(const Duration(seconds: 4), () {
+          _locateErrorShown = false;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -336,24 +362,10 @@ class _MyAddressesViewState extends State<MyAddressesView> {
                     children: [
                       Expanded(
                         child: AppButton.outline(
-                          text: 'Locate Me Again',
+                          text: _isLocating ? 'Locating...' : 'Locate Me Again',
                           icon: Icons.my_location_outlined,
                           isFullWidth: true,
-                          onPressed: () async {
-                            HapticFeedback.selectionClick();
-                            try {
-                              await AddressLocationCoordinator.instance
-                                  .locateMeAgain(context);
-                              await _load();
-                            } catch (_) {
-                              if (mounted) {
-                                AppSnackbar.error(
-                                  context,
-                                  'Could not update location',
-                                );
-                              }
-                            }
-                          },
+                          onPressed: _isLocating ? null : _handleLocateMeAgain,
                         ),
                       ),
                       const SizedBox(width: 12),

@@ -5,6 +5,7 @@ import '../../common/appbar/common_app_bar.dart';
 import '../../common/buttons/app_button.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/cards/app_card.dart';
+import '../../common/cards/product_grid_card.dart';
 import '../../common/dialogs/app_dialog.dart';
 import '../../core/cart/cart_pricing.dart';
 import '../../core/location/address_location_coordinator.dart';
@@ -57,34 +58,37 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
   AddressCache? _addressCache;
   bool _addressLoading = true;
 
-  final List<Map<String, dynamic>> _recommendedItems = [
-    {
-      'id': 'rec-1',
-      'imageUrl':
+  final List<ProductModel> _recommendedItems = const [
+    ProductModel(
+      id: 'cart-rec-1',
+      category: ProductCategory.grocery,
+      name: 'Premium Headphones',
+      imageUrl:
           'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-      'title': 'Premium Headphones',
-      'price': 199.99,
-      'rating': 4.8,
-      'reviewCount': 120,
-    },
-    {
-      'id': 'rec-2',
-      'imageUrl':
+      price: 199.99,
+      rating: 4.8,
+      reviewCount: 120,
+    ),
+    ProductModel(
+      id: 'cart-rec-2',
+      category: ProductCategory.grocery,
+      name: 'Smart Watch',
+      imageUrl:
           'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400',
-      'title': 'Smart Watch',
-      'price': 129.50,
-      'rating': 4.5,
-      'reviewCount': 85,
-    },
-    {
-      'id': 'rec-3',
-      'imageUrl':
+      price: 129.5,
+      rating: 4.5,
+      reviewCount: 85,
+    ),
+    ProductModel(
+      id: 'cart-rec-3',
+      category: ProductCategory.grocery,
+      name: 'Running Shoes',
+      imageUrl:
           'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
-      'title': 'Running Shoes',
-      'price': 89.99,
-      'rating': 4.7,
-      'reviewCount': 214,
-    },
+      price: 89.99,
+      rating: 4.7,
+      reviewCount: 214,
+    ),
   ];
 
   @override
@@ -363,55 +367,45 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                           );
                         },
                       ),
-                      SizedBox(
-                        height: 260,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(
-                            decelerationRate: ScrollDecelerationRate.normal,
-                          ),
-                          itemCount: _recommendedItems.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final item = _recommendedItems[index];
-                            return EcommerceProductCard(
-                              imageUrl: item['imageUrl'],
-                              title: item['title'],
-                              price: item['price'],
-                              rating: item['rating'],
-                              reviewCount: item['reviewCount'],
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  ProductDetailsView.route(
-                                    product: ProductModel(
-                                      id: item['id'] as String? ?? item['title'] as String,
-                                      category: ProductCategory.grocery,
-                                      name: item['title'] as String,
-                                      imageUrl: item['imageUrl'] as String,
-                                      price: item['price'] as double,
-                                      rating: item['rating'] as double?,
-                                      reviewCount: item['reviewCount'] as int?,
-                                    ),
-                                    currentBottomBarIndex: widget.currentBottomBarIndex,
+                      Builder(
+                        builder: (context) {
+                          final screenWidth = MediaQuery.sizeOf(context).width;
+                          final cardWidth =
+                              ((screenWidth - 32 - 12) / 2).clamp(150.0, 220.0).toDouble();
+                          final cardHeight = cardWidth / 0.58;
+
+                          return SizedBox(
+                            height: cardHeight,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(
+                                decelerationRate: ScrollDecelerationRate.normal,
+                              ),
+                              itemCount: _recommendedItems.length,
+                              separatorBuilder: (_, _) => const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final product = _recommendedItems[index];
+                                return SizedBox(
+                                  width: cardWidth,
+                                  child: ProductGridCard(
+                                    key: ValueKey(product.id),
+                                    product: product,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        ProductDetailsView.route(
+                                          product: product,
+                                          currentBottomBarIndex:
+                                              widget.currentBottomBarIndex,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 );
                               },
-                              onAddToCart: () {
-                                _vm.add(
-                                  CartItemModel(
-                                    productId: item['id'],
-                                    name: item['title'],
-                                    imageUrl: item['imageUrl'],
-                                    unitPrice: item['price'],
-                                    quantity: 1,
-                                  ),
-                                );
-                               
-                              },
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 24),
                     ],

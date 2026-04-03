@@ -124,12 +124,15 @@ class TobaccoAccessCoordinator {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(
-                            value: ack,
-                            onChanged: (v) {
-                              HapticFeedback.selectionClick();
-                              setState(() => ack = v ?? false);
-                            },
+                          Material(
+                            type: MaterialType.transparency,
+                            child: Checkbox(
+                              value: ack,
+                              onChanged: (v) {
+                                HapticFeedback.selectionClick();
+                                setState(() => ack = v ?? false);
+                              },
+                            ),
                           ),
                           const SizedBox(width: 8),
                           const Expanded(
