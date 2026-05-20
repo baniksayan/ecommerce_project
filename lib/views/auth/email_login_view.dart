@@ -7,6 +7,7 @@ import '../../core/responsive/media_query_helper.dart';
 import '../../common/buttons/app_button.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../views/auth/otp_verification_view.dart';
+import '../../views/auth/register_view.dart';
 import '../../views/main/main_view.dart';
 
 // ============================================================================
@@ -172,21 +173,52 @@ class _EmailLoginViewState extends State<EmailLoginView> {
     setState(() => _isSending = true);
 
     final email = _emailController.text.trim();
-    final ok = await _vm.sendOtp(email);
+    final result = await _vm.sendOtp(email);
 
     if (!mounted) return;
     setState(() => _isSending = false);
 
-    if (ok) {
+    if (result.shouldOpenOtpVerification) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message ?? 'OTP sent successfully.'),
+          backgroundColor: AppColors.lightSuccess,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => OtpVerificationView(email: email),
         ),
       );
+    } else if (result.shouldRedirectToRegister) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message ??
+                'This email is not registered. Please create an account.',
+          ),
+          backgroundColor: AppColors.lightError,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RegisterView(fromDrawer: widget.fromDrawer),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send OTP. Please try again.'),
+        SnackBar(
+          content: Text(
+            result.message ?? 'Failed to continue. Please try again.',
+          ),
+          backgroundColor: AppColors.lightError,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -329,10 +361,43 @@ class _EmailLoginViewState extends State<EmailLoginView> {
 
                   // ── Send OTP button ───────────────────────────────────────
                   AppButton.primary(
-                    text: 'Send OTP',
+                    text: 'Continue',
                     onPressed: _isSending ? null : _sendOtp,
                     isLoading: _isSending,
                     isFullWidth: true,
+                  ),
+
+                  SizedBox(height: MediaQueryHelper.scaleHeight(24)),
+
+                  // ── Don't have an account? Register ────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Don't have an account? ",
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.lightTextSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => RegisterView(fromDrawer: widget.fromDrawer),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Register',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.lightPrimary,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppColors.lightPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   SizedBox(height: MediaQueryHelper.scaleHeight(16)),

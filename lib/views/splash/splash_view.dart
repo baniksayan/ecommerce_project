@@ -7,7 +7,6 @@ import '../../core/responsive/media_query_helper.dart';
 import '../../core/auth/auth_coordinator.dart';
 import '../../views/auth/email_login_view.dart';
 import '../../views/main/main_view.dart';
-import '../../views/onboarding/onboarding_view.dart';
 import '../../viewmodels/splash_viewmodel.dart';
 
 // ============================================================================
@@ -20,7 +19,7 @@ import '../../viewmodels/splash_viewmodel.dart';
 // ============================================================================
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -46,8 +45,6 @@ class _SplashScreenState extends State<SplashScreen>
     Widget dest;
     if (auth.isLoggedIn) {
       dest = const MainView();
-    } else if (!auth.onboardingCompleted) {
-      dest = const OnboardingView();
     } else {
       dest = const EmailLoginView();
     }

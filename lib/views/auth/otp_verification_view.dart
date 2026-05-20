@@ -81,8 +81,19 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
 
   Future<void> _resendOtp() async {
     if (!_canResend) return;
-    await _vm.sendOtp(widget.email);
+    final result = await _vm.sendOtp(widget.email);
     if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message ?? 'OTP sent successfully.'),
+        backgroundColor: result.shouldOpenOtpVerification
+            ? AppColors.lightSuccess
+            : AppColors.lightError,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
     _otpController.clear();
     setState(() => _errorMessage = null);
     _startResendCooldown();
@@ -101,23 +112,40 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
       _errorMessage = null;
     });
 
-    final ok = await _vm.verifyOtp(email: widget.email, code: code);
+    final result = await _vm.verifyOtp(email: widget.email, code: code);
 
     if (!mounted) return;
 
-    if (ok) {
-      // Clear the entire navigation stack so back-press cannot return
-      // to the auth flow after successful login.
-      Navigator.of(context).pushAndRemoveUntil(
+    if (result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message ?? 'Verification successful.'),
+          backgroundColor: AppColors.lightSuccess,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainView()),
-        (route) => false,
       );
     } else {
       setState(() {
         _isVerifying = false;
-        _errorMessage = 'Invalid code. Please try again.';
+        _errorMessage = result.message ?? 'Invalid code. Please try again.';
         _otpController.clear();
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage!),
+          backgroundColor: AppColors.lightError,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
       _otpFocusNode.requestFocus();
     }
   }
