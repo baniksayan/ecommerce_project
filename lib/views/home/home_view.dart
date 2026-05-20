@@ -3,9 +3,12 @@ import 'home_widgets.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/cards/product_grid_card.dart';
+import '../../models/categories_model.dart';
+import '../../models/product_list_model.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/tobacco/tobacco_access_coordinator.dart';
 import '../../data/models/product_model.dart';
+import '../../services/api_service.dart';
 import '../product_details/product_details_view.dart';
 import '../product_listing/product_listing_view.dart';
 
@@ -17,6 +20,8 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
+  final ApiService _apiService = ApiService();
+
   // Simulate optional profile picture (Set to a URL string or null)
   String? _profilePicUrl;
   // e.g. 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100';
@@ -57,106 +62,177 @@ class _HomeViewState extends State<HomeView> {
     'Everyday Essentials',
   ];
 
-  final List<ProductModel> _mockProducts = const [
-    ProductModel(
-      id: 'home-mock-1',
-      category: ProductCategory.grocery,
-      name: 'Sony Wireless Headphones',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-      price: 99.99,
-      originalPrice: 149.99,
-      discountTag: '33% OFF',
-      rating: 4.8,
-      reviewCount: 124,
-    ),
-    ProductModel(
-      id: 'home-mock-2',
-      category: ProductCategory.grocery,
-      name: 'Smart Watch Series 6',
-      imageUrl:
-          'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=400',
-      price: 199.99,
-      originalPrice: 249.99,
-      discountTag: '20% OFF',
-      rating: 4.6,
-      reviewCount: 382,
-    ),
-    ProductModel(
-      id: 'home-mock-3',
-      category: ProductCategory.grocery,
-      name: 'Casual Denim Jacket',
-      imageUrl:
-          'https://images.unsplash.com/photo-1618366712010-f4ae9c647bcb?auto=format&fit=crop&q=80&w=400',
-      price: 45.0,
-      originalPrice: 60.0,
-      discountTag: '25% OFF',
-      rating: 4.3,
-      reviewCount: 89,
-    ),
-    ProductModel(
-      id: 'home-mock-4',
-      category: ProductCategory.grocery,
-      name: 'Classic Vans Sneakers',
-      imageUrl:
-          'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&q=80&w=400',
-      price: 59.99,
-      rating: 4.7,
-      reviewCount: 540,
-    ),
-    ProductModel(
-      id: 'home-mock-5',
-      category: ProductCategory.grocery,
-      name: 'Minimalist Clock',
-      imageUrl:
-          'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&q=80&w=400',
-      price: 24.5,
-      rating: 4.5,
-      reviewCount: 12,
-    ),
-    ProductModel(
-      id: 'home-mock-6',
-      category: ProductCategory.grocery,
-      name: 'Leather Wallet',
-      imageUrl:
-          'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=400',
-      price: 35.0,
-      rating: 4.9,
-      reviewCount: 300,
-    ),
-    ProductModel(
-      id: 'home-mock-7',
-      category: ProductCategory.grocery,
-      name: 'Premium Wireless Earbuds',
-      imageUrl:
-          'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80&w=400',
-      price: 79.99,
-      originalPrice: 129.99,
-      discountTag: 'Save 50',
-      rating: 4.6,
-      reviewCount: 412,
-    ),
-    ProductModel(
-      id: 'home-mock-8',
-      category: ProductCategory.grocery,
-      name: 'Classic Sunglasses',
-      imageUrl:
-          'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&q=80&w=400',
-      price: 15.0,
-      originalPrice: 40.0,
-      discountTag: '62% OFF',
-      rating: 4.2,
-      reviewCount: 95,
-    ),
-  ];
+  bool _isLoadingDynamic = false;
+  String? _dynamicError;
+  List<CategoryItemModel> _apiCategories = const <CategoryItemModel>[];
+  List<ProductModel> _apiProducts = const <ProductModel>[];
+  String? _selectedCategoryName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDynamicHomeData();
+  }
+
+  Future<void> _loadDynamicHomeData() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingDynamic = true;
+        _dynamicError = null;
+      });
+    }
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _apiService.getCategories(),
+        _apiService.getProducts(),
+      ]);
+
+      final categories = results[0] as Categories;
+      final products = results[1] as Productlist;
+
+      final apiCategories = (categories.data ?? const <CategoryItemModel>[])
+          .where((e) => (e.name ?? '').trim().isNotEmpty)
+          .toList(growable: false);
+
+      final apiProducts = (products.data ?? const <ProductItemModel>[])
+          .asMap()
+          .entries
+          .map((entry) => _mapApiProduct(entry.value, entry.key))
+          .toList(growable: false);
+
+      if (!mounted) return;
+      setState(() {
+        _apiCategories = apiCategories;
+        _apiProducts = apiProducts;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _dynamicError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingDynamic = false;
+        });
+      }
+    }
+  }
+
+  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+    final category = _categoryFromApiName(item.categoryName);
+    final id = item.id?.toString() ?? 'api-product-$index';
+    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+
+    return ProductModel(
+      id: id,
+      category: category,
+      name: (item.name ?? '').trim().isEmpty
+          ? 'Unnamed Product'
+          : item.name!.trim(),
+      imageUrl: _apiService.resolveImageUrl(item.images),
+      price: price,
+      originalPrice: null,
+      discountTag: null,
+      rating: null,
+      reviewCount: null,
+      stockLeft: null,
+      isFastDelivery: null,
+      isBestSeller: null,
+    );
+  }
+
+  ProductCategory _categoryFromApiName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return ProductCategory.grocery;
+  }
+
+  IconData _iconFromCategoryName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('electronic')) return Icons.devices;
+    if (value.contains('fashion')) return Icons.checkroom;
+    if (value.contains('grocery')) return Icons.local_grocery_store;
+    if (value.contains('beauty')) return Icons.face_retouching_natural;
+    if (value.contains('book')) return Icons.menu_book;
+    if (value.contains('furniture')) return Icons.chair;
+    if (value.contains('toy')) return Icons.toys;
+    if (value.contains('mobile')) return Icons.smartphone;
+    if (value.contains('computer') || value.contains('laptop')) {
+      return Icons.computer;
+    }
+    if (value.contains('watch')) return Icons.watch;
+    if (value.contains('shoe')) return Icons.snowshoeing;
+    if (value.contains('fresh')) return Icons.eco;
+    if (value.contains('snack')) return Icons.fastfood;
+    if (value.contains('drink')) return Icons.local_drink;
+    if (value.contains('dairy')) return Icons.egg_alt;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return Icons.smoking_rooms_outlined;
+    }
+    return Icons.category;
+  }
+
+  ProductCategory? _knownCategoryFromName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('grocery')) return ProductCategory.grocery;
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return null;
+  }
+
+  List<ProductModel> get _effectiveProducts {
+    final source = _apiProducts;
+    if ((_selectedCategoryName ?? '').trim().isEmpty) {
+      return source;
+    }
+
+    final selected = _selectedCategoryName!.toLowerCase();
+    return source
+        .where((product) {
+          return product.category.displayName.toLowerCase() == selected;
+        })
+        .toList(growable: false);
+  }
 
   List<ProductModel> _generateProducts(int sectionIndex) {
-    final start = (sectionIndex * 3) % _mockProducts.length;
+    final source = _effectiveProducts;
+    if (source.isEmpty) return const <ProductModel>[];
+
+    final start = (sectionIndex * 3) % source.length;
     final sectionTitle = _sectionTitles[sectionIndex % _sectionTitles.length];
     final sectionCategory = _categoryForSectionTitle(sectionTitle);
 
     return List.generate(4, (i) {
-      final base = _mockProducts[(start + i) % _mockProducts.length];
+      final base = source[(start + i) % source.length];
       return base.copyWith(
         id: '${base.id}-$sectionIndex-$i',
         category: sectionCategory,
@@ -173,8 +249,9 @@ class _HomeViewState extends State<HomeView> {
     if (t.contains('drink')) return ProductCategory.drinks;
     if (t.contains('dairy')) return ProductCategory.dairy;
     if (t.contains('shoe')) return ProductCategory.shoes;
-    if (t.contains('paan') || t.contains('tobacco'))
+    if (t.contains('paan') || t.contains('tobacco')) {
       return ProductCategory.tobacco;
+    }
     return ProductCategory.grocery;
   }
 
@@ -188,222 +265,265 @@ class _HomeViewState extends State<HomeView> {
         profilePicUrl: _profilePicUrl,
         currentBottomBarIndex: 0,
       ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(
-          decelerationRate: ScrollDecelerationRate.normal,
-        ),
-        slivers: [
-          PrimarySliverAppBar(
-            searchHintText: 'Search groceries, beauty...',
-            searchStaticPrefix: 'Search ',
-            searchAnimatedHints: const [
-              'groceries...',
-              'beauty products...',
-              'shoes...',
-              'fresh items...',
-              'snacks...',
-              'drinks...',
-              'dairy...',
-            ],
-            onSearchChanged: (val) => debugPrint('Searching: $val'),
-            currentBottomBarIndex: 0,
+      body: RefreshIndicator(
+        onRefresh: _loadDynamicHomeData,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(
+            decelerationRate: ScrollDecelerationRate.normal,
           ),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                // Promo Carousel
-                EcommercePromoCarousel(
-                  imageUrls: _carouselImages,
-                  height: 180,
-                  onBannerTap: () => debugPrint('Banner Tapped'),
-                ),
-                const SizedBox(height: 32),
-                // Categories View
-                EcommerceCategoryRow(
-                  categories: [
-                    EcommerceCategoryItem(
-                      label: 'Grocery',
-                      icon: Icons.local_grocery_store,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.grocery,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Beauty',
-                      icon: Icons.face,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.beauty,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Shoes',
-                      icon: Icons.snowshoeing,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.shoes,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Fresh',
-                      icon: Icons.eco,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.fresh,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Snacks',
-                      icon: Icons.fastfood,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.snacks,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Drinks',
-                      icon: Icons.local_drink,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.drinks,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Dairy',
-                      icon: Icons.egg_alt,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          ProductListingView.route(
-                            category: ProductCategory.dairy,
-                            currentBottomBarIndex: 0,
-                          ),
-                        );
-                      },
-                    ),
-                    EcommerceCategoryItem(
-                      label: 'Paan Corner',
-                      icon: Icons.smoking_rooms_outlined,
-                      onTap: () {
-                        TobaccoAccessCoordinator.instance.openTobaccoListing(
-                          context,
-                          currentBottomBarIndex: 0,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+          slivers: [
+            PrimarySliverAppBar(
+              searchHintText: 'Search groceries, beauty...',
+              searchStaticPrefix: 'Search ',
+              searchAnimatedHints: const [
+                'groceries...',
+                'beauty products...',
+                'shoes...',
+                'fresh items...',
+                'snacks...',
+                'drinks...',
+                'dairy...',
               ],
+              onSearchChanged: (val) => debugPrint('Searching: $val'),
+              currentBottomBarIndex: 0,
             ),
-          ),
-
-          // Infinite Section Builder
-          SliverList.builder(
-            itemBuilder: (context, index) {
-              if (index % 2 == 0) {
-                // Return a product list section
-                final sectionIndex = index ~/ 2;
-                final title =
-                    _sectionTitles[sectionIndex % _sectionTitles.length];
-                final products = _generateProducts(sectionIndex);
-
-                return Column(
-                  children: [
-                    EcommerceSectionTitle(
-                      title: title,
-                      onActionTap: () {
-                        ProductListingCoordinator.instance.openListing(
-                          context,
-                          category: _categoryForSectionTitle(title),
-                          currentBottomBarIndex: 0,
-                        );
-                      },
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  // Promo Carousel
+                  EcommercePromoCarousel(
+                    imageUrls: _carouselImages,
+                    height: 180,
+                    onBannerTap: () => debugPrint('Banner Tapped'),
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isLoadingDynamic)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
+                  if (_dynamicError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Material(
+                        color: theme.colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: theme.colorScheme.onErrorContainer,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Failed to refresh categories/products. Showing available items.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onErrorContainer,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  // Categories View
+                  if (_apiCategories.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: products.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.58,
-                            ),
-                        itemBuilder: (context, i) {
-                          final product = products[i];
-                          return ProductGridCard(
-                            key: ValueKey(product.id),
-                            product: product,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                ProductDetailsView.route(
-                                  product: product,
-                                  currentBottomBarIndex: 0,
-                                ),
-                              );
-                            },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          'No categories available right now.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    )
+                  else
+                    EcommerceCategoryRow(categories: _buildCategoryItems()),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+            // Infinite Section Builder
+            SliverList.builder(
+              itemBuilder: (context, index) {
+                if (index % 2 == 0) {
+                  // Return a product list section
+                  final sectionIndex = index ~/ 2;
+                  final title =
+                      _sectionTitles[sectionIndex % _sectionTitles.length];
+                  final products = _generateProducts(sectionIndex);
+
+                  return Column(
+                    children: [
+                      EcommerceSectionTitle(
+                        title: title,
+                        onActionTap: () {
+                          ProductListingCoordinator.instance.openListing(
+                            context,
+                            category: _categoryForSectionTitle(title),
+                            currentBottomBarIndex: 0,
                           );
                         },
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              } else {
-                // Return an offer banner
-                final bannerIndex = index ~/ 2;
-                final bannerImage =
-                    _bannerImages[bannerIndex % _bannerImages.length];
-                final bannerTitle =
-                    _bannerTitles[bannerIndex % _bannerTitles.length];
-                final bannerSubtitle =
-                    _bannerSubtitles[bannerIndex % _bannerSubtitles.length];
+                      if (products.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Text(
+                              'No products found for this category.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: products.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 12,
+                                  crossAxisSpacing: 12,
+                                  childAspectRatio: 0.58,
+                                ),
+                            itemBuilder: (context, i) {
+                              final product = products[i];
+                              return ProductGridCard(
+                                key: ValueKey(product.id),
+                                product: product,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    ProductDetailsView.route(
+                                      product: product,
+                                      currentBottomBarIndex: 0,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                } else {
+                  // Return an offer banner
+                  final bannerIndex = index ~/ 2;
+                  final bannerImage =
+                      _bannerImages[bannerIndex % _bannerImages.length];
+                  final bannerTitle =
+                      _bannerTitles[bannerIndex % _bannerTitles.length];
+                  final bannerSubtitle =
+                      _bannerSubtitles[bannerIndex % _bannerSubtitles.length];
 
-                return Column(
-                  children: [
-                    EcommerceOfferBanner(
-                      title: bannerTitle,
-                      subtitle: bannerSubtitle,
-                      imageUrl: bannerImage,
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              }
-            },
-          ),
-        ],
+                  return Column(
+                    children: [
+                      EcommerceOfferBanner(
+                        title: bannerTitle,
+                        subtitle: bannerSubtitle,
+                        imageUrl: bannerImage,
+                        onTap: () {},
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  List<EcommerceCategoryItem> _buildCategoryItems() {
+    if (_apiCategories.isEmpty) {
+      return const <EcommerceCategoryItem>[];
+    }
+
+    final allItems = <EcommerceCategoryItem>[
+      EcommerceCategoryItem(
+        label: 'All',
+        icon: Icons.apps,
+        onTap: () {
+          setState(() => _selectedCategoryName = null);
+        },
+        backgroundColor: _selectedCategoryName == null
+            ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+            : null,
+      ),
+    ];
+
+    for (final cat in _apiCategories) {
+      final name = (cat.name ?? '').trim();
+      if (name.isEmpty) continue;
+      final knownCategory = _knownCategoryFromName(name);
+
+      allItems.add(
+        EcommerceCategoryItem(
+          label: name,
+          icon: _iconFromCategoryName(name),
+          onTap: () {
+            setState(() => _selectedCategoryName = name);
+
+            if (knownCategory == ProductCategory.tobacco) {
+              TobaccoAccessCoordinator.instance.openTobaccoListing(
+                context,
+                currentBottomBarIndex: 0,
+              );
+              return;
+            }
+
+            if (knownCategory != null) {
+              Navigator.of(context).push(
+                ProductListingView.route(
+                  category: knownCategory,
+                  currentBottomBarIndex: 0,
+                ),
+              );
+            }
+          },
+          backgroundColor:
+              _selectedCategoryName?.toLowerCase() == name.toLowerCase()
+              ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
+              : null,
+        ),
+      );
+    }
+
+    return allItems;
   }
 }

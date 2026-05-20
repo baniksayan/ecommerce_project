@@ -7,6 +7,8 @@ import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/cards/app_card.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/dialogs/app_dialog.dart';
+import '../../core/auth/auth_guard.dart';
+import '../../core/cart/cart_coordinator.dart';
 import '../../core/cart/cart_pricing.dart';
 import '../../core/location/address_location_coordinator.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
@@ -97,6 +99,13 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
     _vm = CartViewModel(repository: HiveCartRepository());
     _vm.init();
     _loadAddressCache();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final allowed = await handleProtectedAction(context);
+      if (!allowed) return;
+      await CartCoordinator.instance.syncFromServer();
+    });
 
     _emptyStateController = AnimationController(
       vsync: this,
@@ -370,20 +379,24 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                       Builder(
                         builder: (context) {
                           final screenWidth = MediaQuery.sizeOf(context).width;
-                          final cardWidth =
-                              ((screenWidth - 32 - 12) / 2).clamp(150.0, 220.0).toDouble();
+                          final cardWidth = ((screenWidth - 32 - 12) / 2)
+                              .clamp(150.0, 220.0)
+                              .toDouble();
                           final cardHeight = cardWidth / 0.58;
 
                           return SizedBox(
                             height: cardHeight,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                              ),
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(
                                 decelerationRate: ScrollDecelerationRate.normal,
                               ),
                               itemCount: _recommendedItems.length,
-                              separatorBuilder: (_, _) => const SizedBox(width: 12),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 12),
                               itemBuilder: (context, index) {
                                 final product = _recommendedItems[index];
                                 return SizedBox(
@@ -464,9 +477,10 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                                     );
                                   },
                                   onRemove: () async {
-                                    await _vm.remove(item.productId);
+                                    await CartCoordinator.instance.removeItem(
+                                      item.productId,
+                                    );
                                     if (!context.mounted) return;
-                                    
                                   },
                                 );
                               }, childCount: listChildCount),
@@ -548,6 +562,23 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                                             '  - $s$deliveryCharge delivery charge',
                                       );
                                     },
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      onPressed: _vm.items.isEmpty
+                                          ? null
+                                          : () async {
+                                              HapticFeedback.selectionClick();
+                                              await CartCoordinator.instance
+                                                  .clear();
+                                            },
+                                      icon: const Icon(
+                                        Icons.delete_sweep_outlined,
+                                      ),
+                                      label: const Text('Clear Cart'),
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   AppButton.primary(

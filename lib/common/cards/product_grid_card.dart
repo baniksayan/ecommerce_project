@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../snackbars/app_snackbar.dart';
+import '../../core/auth/auth_guard.dart';
 import '../../core/cart/cart_coordinator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
+import '../../core/wishlist/wishlist_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
+import '../../data/models/wishlist_item_model.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
 
@@ -75,9 +79,13 @@ class _ProductGridCardState extends State<ProductGridCard> {
   int _cartQuantity = 0;
   bool _isWishlisted = false;
   bool _justAddedPulse = false;
+  bool _isCartActionLoading = false;
+  bool _isWishlistActionLoading = false;
 
   late final Stream<List<CartItemModel>> _cartStream;
   late final StreamSubscription<List<CartItemModel>> _cartSub;
+  late final Stream<List<WishlistItemModel>> _wishlistStream;
+  late final StreamSubscription<List<WishlistItemModel>> _wishlistSub;
 
   @override
   void initState() {
@@ -85,6 +93,10 @@ class _ProductGridCardState extends State<ProductGridCard> {
     _cartStream = CartCoordinator.instance.watchItems();
     _cartSub = _cartStream.listen(_syncCartQty);
     CartCoordinator.instance.getItems().then(_syncCartQty);
+
+    _wishlistStream = WishlistCoordinator.instance.watchItems();
+    _wishlistSub = _wishlistStream.listen(_syncWishlist);
+    WishlistCoordinator.instance.getItems().then(_syncWishlist);
   }
 
   void _syncCartQty(List<CartItemModel> items) {
@@ -98,50 +110,97 @@ class _ProductGridCardState extends State<ProductGridCard> {
     setState(() => _cartQuantity = next);
   }
 
+  void _syncWishlist(List<WishlistItemModel> items) {
+    final next = items.any((item) => item.productId == widget.product.id);
+    if (!mounted || _isWishlisted == next) return;
+    setState(() => _isWishlisted = next);
+  }
+
   @override
   void dispose() {
     _cartSub.cancel();
+    _wishlistSub.cancel();
     super.dispose();
   }
 
   Future<void> _handleAddToCart() async {
-    if (_cartQuantity > 0) return;
+    if (_cartQuantity > 0 || _isCartActionLoading) return;
+    final allowed = await handleProtectedAction(context);
+    if (!allowed || !mounted) return;
+
     HapticFeedback.lightImpact();
     _pulseAdded();
-    await CartCoordinator.instance.addItem(
-      CartItemModel(
-        productId: widget.product.id,
-        name: widget.product.name,
-        imageUrl: widget.product.imageUrl,
-        unitPrice: widget.product.price,
-        quantity: 1,
-      ),
-    );
+
+    setState(() => _isCartActionLoading = true);
+    try {
+      await CartCoordinator.instance.addItem(
+        CartItemModel(
+          productId: widget.product.id,
+          name: widget.product.name,
+          imageUrl: widget.product.imageUrl,
+          unitPrice: widget.product.price,
+          quantity: 1,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCartActionLoading = false);
+      }
+    }
   }
 
   Future<void> _increment() async {
+    if (_isCartActionLoading) return;
+    final allowed = await handleProtectedAction(context);
+    if (!allowed || !mounted) return;
+
     HapticFeedback.selectionClick();
-    await CartCoordinator.instance.addItem(
-      CartItemModel(
-        productId: widget.product.id,
-        name: widget.product.name,
-        imageUrl: widget.product.imageUrl,
-        unitPrice: widget.product.price,
-        quantity: 1,
-      ),
-    );
+
+    setState(() => _isCartActionLoading = true);
+    try {
+      await CartCoordinator.instance.addItem(
+        CartItemModel(
+          productId: widget.product.id,
+          name: widget.product.name,
+          imageUrl: widget.product.imageUrl,
+          unitPrice: widget.product.price,
+          quantity: 1,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCartActionLoading = false);
+      }
+    }
   }
 
   Future<void> _decrement() async {
+    if (_isCartActionLoading) return;
+    final allowed = await handleProtectedAction(context);
+    if (!allowed || !mounted) return;
+
     HapticFeedback.selectionClick();
+    setState(() => _isCartActionLoading = true);
     if (_cartQuantity <= 1) {
-      await CartCoordinator.instance.removeItem(widget.product.id);
+      try {
+        await CartCoordinator.instance.removeItem(widget.product.id);
+      } finally {
+        if (mounted) {
+          setState(() => _isCartActionLoading = false);
+        }
+      }
       return;
     }
-    await CartCoordinator.instance.setQuantity(
-      widget.product.id,
-      _cartQuantity - 1,
-    );
+    try {
+      await CartCoordinator.instance.setQuantity(
+        widget.product.id,
+        _cartQuantity - 1,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCartActionLoading = false);
+      }
+    }
   }
 
   void _pulseAdded() {
@@ -153,9 +212,42 @@ class _ProductGridCardState extends State<ProductGridCard> {
     });
   }
 
-  void _toggleWishlist() {
+  Future<void> _toggleWishlist() async {
+    if (_isWishlistActionLoading) return;
+    final allowed = await handleProtectedAction(context);
+    if (!allowed || !mounted) return;
+
     HapticFeedback.heavyImpact();
-    setState(() => _isWishlisted = !_isWishlisted);
+    setState(() => _isWishlistActionLoading = true);
+    try {
+      late final WishlistActionResult result;
+      if (_isWishlisted) {
+        result = await WishlistCoordinator.instance.removeItem(
+          widget.product.id,
+        );
+      } else {
+        result = await WishlistCoordinator.instance.addItem(
+          WishlistItemModel(
+            productId: widget.product.id,
+            name: widget.product.name,
+            imageUrl: widget.product.imageUrl,
+            sku: null,
+            unitPrice: widget.product.price,
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      if (result.success) {
+        AppSnackbar.success(context, result.message);
+      } else {
+        AppSnackbar.warning(context, result.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isWishlistActionLoading = false);
+      }
+    }
   }
 
   @override
@@ -287,7 +379,9 @@ class _ProductGridCardState extends State<ProductGridCard> {
                                 ),
                                 shape: const CircleBorder(),
                                 child: InkResponse(
-                                  onTap: _toggleWishlist,
+                                  onTap: _isWishlistActionLoading
+                                      ? null
+                                      : () => _toggleWishlist(),
                                   radius: 20,
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),

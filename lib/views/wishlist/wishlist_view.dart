@@ -4,16 +4,19 @@ import 'dart:async';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_currency.dart';
+import '../../core/auth/auth_guard.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/buttons/app_button.dart';
+import '../../common/snackbars/app_snackbar.dart';
 import '../../core/cart/cart_coordinator.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/wishlist/wishlist_coordinator.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/wishlist_item_model.dart';
+import '../../services/api_service.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_details/product_details_view.dart';
@@ -41,6 +44,7 @@ class WishlistItem {
   final String id;
   final String imageUrl;
   final String title;
+  final String sku;
   final double price;
   final double originalPrice;
   final String discountTag;
@@ -52,6 +56,7 @@ class WishlistItem {
     required this.id,
     required this.imageUrl,
     required this.title,
+    required this.sku,
     required this.price,
     required this.originalPrice,
     required this.discountTag,
@@ -77,6 +82,8 @@ class WishlistView extends StatefulWidget {
 
 class _WishlistViewState extends State<WishlistView>
     with TickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+
   String? _profilePicUrl;
 
   StreamSubscription<List<WishlistItemModel>>? _sub;
@@ -86,43 +93,42 @@ class _WishlistViewState extends State<WishlistView>
 
   List<WishlistItem> _wishlistItems = [];
 
-  final List<ProductModel> _recommendedItems = const [
-    ProductModel(
-      id: 'wishlist-rec-1',
-      category: ProductCategory.grocery,
-      name: 'Premium Headphones',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-      price: 199.99,
-      rating: 4.8,
-      reviewCount: 120,
-    ),
-    ProductModel(
-      id: 'wishlist-rec-2',
-      category: ProductCategory.grocery,
-      name: 'Smart Watch',
-      imageUrl:
-          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400',
-      price: 129.5,
-      rating: 4.5,
-      reviewCount: 85,
-    ),
-    ProductModel(
-      id: 'wishlist-rec-3',
-      category: ProductCategory.grocery,
-      name: 'Running Shoes',
-      imageUrl:
-          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
-      price: 89.99,
-      rating: 4.7,
-      reviewCount: 214,
-    ),
-  ];
+  List<ProductModel> get _recommendedItems => _wishlistItems
+      .map(
+        (item) => ProductModel(
+          id: item.id,
+          category: ProductCategory.grocery,
+          name: item.title,
+          imageUrl: item.imageUrl,
+          price: item.price,
+          originalPrice: item.originalPrice > item.price
+              ? item.originalPrice
+              : null,
+          discountTag: item.discountTag.trim().isNotEmpty
+              ? item.discountTag
+              : null,
+          rating: item.rating > 0 ? item.rating : null,
+          reviewCount: item.reviewCount > 0 ? item.reviewCount : null,
+        ),
+      )
+      .toList(growable: false);
 
   @override
   void initState() {
     super.initState();
     _bindWishlist();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final allowed = await handleProtectedAction(context);
+      if (!allowed) return;
+      final result = await WishlistCoordinator.instance.syncFromServer();
+      if (!mounted) return;
+      if (!result.success && result.message.trim().isNotEmpty) {
+        AppSnackbar.warning(context, result.message);
+      }
+    });
+
     _emptyCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -150,10 +156,9 @@ class _WishlistViewState extends State<WishlistView>
             .map(
               (e) => WishlistItem(
                 id: e.productId,
-                imageUrl: (e.imageUrl ?? '').trim().isEmpty
-                    ? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400'
-                    : e.imageUrl!,
+                imageUrl: _apiService.resolveImageUrl(e.imageUrl),
                 title: e.name,
+                sku: (e.sku ?? '').trim(),
                 price: e.unitPrice,
                 originalPrice: e.unitPrice,
                 discountTag: '',
@@ -174,15 +179,26 @@ class _WishlistViewState extends State<WishlistView>
   double get _totalWishlistValue =>
       _wishlistItems.fold(0, (sum, item) => sum + item.price);
 
-  void _removeItem(WishlistItem item) {
+  Future<void> _removeItem(WishlistItem item) async {
+    final allowed = await handleProtectedAction(context);
+    if (!allowed) return;
+
     HapticFeedback.heavyImpact();
-    WishlistCoordinator.instance.removeItem(item.id);
-    
+    final result = await WishlistCoordinator.instance.removeItem(item.id);
+    if (!mounted) return;
+    if (result.success) {
+      AppSnackbar.success(context, result.message);
+    } else {
+      AppSnackbar.warning(context, result.message);
+    }
   }
 
-  void _addToCart(WishlistItem item) {
+  Future<void> _addToCart(WishlistItem item) async {
+    final allowed = await handleProtectedAction(context);
+    if (!allowed) return;
+
     HapticFeedback.heavyImpact();
-    CartCoordinator.instance.addItem(
+    await CartCoordinator.instance.addItem(
       CartItemModel(
         productId: item.id,
         name: item.title,
@@ -195,14 +211,16 @@ class _WishlistViewState extends State<WishlistView>
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
       setState(() => item.isAddedToCart = false);
-      WishlistCoordinator.instance.removeItem(item.id);
     });
   }
 
-  void _addAllToCart() {
+  Future<void> _addAllToCart() async {
+    final allowed = await handleProtectedAction(context);
+    if (!allowed) return;
+
     HapticFeedback.heavyImpact();
     for (final item in _wishlistItems) {
-      CartCoordinator.instance.addItem(
+      await CartCoordinator.instance.addItem(
         CartItemModel(
           productId: item.id,
           name: item.title,
@@ -220,7 +238,11 @@ class _WishlistViewState extends State<WishlistView>
 
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
-      WishlistCoordinator.instance.clear();
+      setState(() {
+        for (final item in _wishlistItems) {
+          item.isAddedToCart = false;
+        }
+      });
     });
   }
 
@@ -279,6 +301,7 @@ class _WishlistViewState extends State<WishlistView>
                     key: ValueKey(item.id),
                     item: item,
                     index: index,
+                    onTap: () => _openProductDetails(item),
                     onRemove: () => _removeItem(item),
                     onAddToCart: () => _addToCart(item),
                   );
@@ -294,64 +317,90 @@ class _WishlistViewState extends State<WishlistView>
             ),
           ],
 
-          // ── Recommended Section ───────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 32),
-              child: EcommerceSectionTitle(
-                title: !isEmpty ? 'Similar Items' : 'Recommended for you',
-                actionText: 'See All',
-                onActionTap: () {
-                  ProductListingCoordinator.instance.openListing(
-                    context,
-                    category: ProductCategory.grocery,
-                    currentBottomBarIndex: 1,
+          if (_recommendedItems.isNotEmpty) ...[
+            // ── Recommended Section ───────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 32),
+                child: EcommerceSectionTitle(
+                  title: !isEmpty ? 'Similar Items' : 'Recommended for you',
+                  actionText: 'See All',
+                  onActionTap: () {
+                    ProductListingCoordinator.instance.openListing(
+                      context,
+                      category: ProductCategory.grocery,
+                      currentBottomBarIndex: 1,
+                    );
+                  },
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Builder(
+                builder: (context) {
+                  final screenWidth = MediaQuery.sizeOf(context).width;
+                  final cardWidth = ((screenWidth - 32 - 12) / 2)
+                      .clamp(150.0, 220.0)
+                      .toDouble();
+                  final cardHeight = cardWidth / 0.58;
+
+                  return SizedBox(
+                    height: cardHeight,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _recommendedItems.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final product = _recommendedItems[index];
+                        return SizedBox(
+                          width: cardWidth,
+                          child: ProductGridCard(
+                            key: ValueKey(product.id),
+                            product: product,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                ProductDetailsView.route(
+                                  product: product,
+                                  currentBottomBarIndex: 1,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Builder(
-              builder: (context) {
-                final screenWidth = MediaQuery.sizeOf(context).width;
-                final cardWidth =
-                    ((screenWidth - 32 - 12) / 2).clamp(150.0, 220.0).toDouble();
-                final cardHeight = cardWidth / 0.58;
-
-                return SizedBox(
-                  height: cardHeight,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _recommendedItems.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final product = _recommendedItems[index];
-                      return SizedBox(
-                        width: cardWidth,
-                        child: ProductGridCard(
-                          key: ValueKey(product.id),
-                          product: product,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              ProductDetailsView.route(
-                                product: product,
-                                currentBottomBarIndex: 1,
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _openProductDetails(WishlistItem item) {
+    Navigator.of(context).push(
+      ProductDetailsView.route(
+        product: ProductModel(
+          id: item.id,
+          category: ProductCategory.grocery,
+          name: item.title,
+          imageUrl: item.imageUrl,
+          price: item.price,
+          originalPrice: item.originalPrice > item.price
+              ? item.originalPrice
+              : null,
+          discountTag: item.discountTag.trim().isNotEmpty
+              ? item.discountTag
+              : null,
+          rating: item.rating > 0 ? item.rating : null,
+          reviewCount: item.reviewCount > 0 ? item.reviewCount : null,
+        ),
+        currentBottomBarIndex: 1,
       ),
     );
   }
@@ -550,6 +599,7 @@ class _BannerStat extends StatelessWidget {
 class _AnimatedWishlistCard extends StatefulWidget {
   final WishlistItem item;
   final int index;
+  final VoidCallback onTap;
   final VoidCallback onRemove;
   final VoidCallback onAddToCart;
 
@@ -557,6 +607,7 @@ class _AnimatedWishlistCard extends StatefulWidget {
     super.key,
     required this.item,
     required this.index,
+    required this.onTap,
     required this.onRemove,
     required this.onAddToCart,
   });
@@ -606,7 +657,7 @@ class _AnimatedWishlistCardState extends State<_AnimatedWishlistCard>
           onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
-          onTap: () {},
+          onTap: widget.onTap,
           child: AnimatedScale(
             scale: _pressed ? 0.97 : 1.0,
             duration: const Duration(milliseconds: 120),
@@ -733,6 +784,19 @@ class _WishlistCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (item.sku.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'SKU: ${item.sku}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 6),
 
                   if (hasRating) ...[

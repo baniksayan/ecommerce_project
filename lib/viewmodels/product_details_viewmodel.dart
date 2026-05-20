@@ -3,24 +3,24 @@ import 'dart:async';
 import '../data/models/cart_item_model.dart';
 import '../data/models/product_model.dart';
 import '../data/models/wishlist_item_model.dart';
+import '../models/product_list_model.dart';
 import '../data/repositories/cart_repository.dart';
-import '../data/repositories/product_repository.dart';
 import '../data/repositories/wishlist_repository.dart';
+import '../core/wishlist/wishlist_coordinator.dart';
+import '../services/api_service.dart';
 import 'base_viewmodel.dart';
 
 class ProductDetailsViewModel extends BaseViewModel {
   final ProductModel product;
-  final ProductRepository _productRepository;
   final CartRepository _cartRepository;
   final WishlistRepository _wishlistRepository;
+  final ApiService _apiService = ApiService();
 
   ProductDetailsViewModel({
     required this.product,
-    required ProductRepository productRepository,
     required CartRepository cartRepository,
     required WishlistRepository wishlistRepository,
-  }) : _productRepository = productRepository,
-       _cartRepository = cartRepository,
+  }) : _cartRepository = cartRepository,
        _wishlistRepository = wishlistRepository;
 
   StreamSubscription<List<CartItemModel>>? _cartSub;
@@ -48,12 +48,44 @@ class ProductDetailsViewModel extends BaseViewModel {
   List<ProductModel> _categorySearchProducts = const [];
   List<ProductModel> get categorySearchProducts => _categorySearchProducts;
 
-  String get productDescription {
-    // Static placeholder (API-ready): keep the UI independent of content source.
-    return 'Fresh ${product.name.toLowerCase()} sourced locally.\n'
-        'Pack size: 1 unit.\n'
-        'Category: ${product.category.displayName}.';
+  String? _apiName;
+  String? _apiCategoryLabel;
+  double? _apiPrice;
+  double? _apiOriginalPrice;
+  int? _apiStockLeft;
+
+  String get displayName =>
+      (_apiName ?? '').trim().isNotEmpty ? _apiName!.trim() : product.name;
+
+  String get displayCategoryLabel => (_apiCategoryLabel ?? '').trim().isNotEmpty
+      ? _apiCategoryLabel!.trim()
+      : product.category.displayName;
+
+  double get displayPrice => _apiPrice ?? product.price;
+  double? get displayOriginalPrice =>
+      _apiOriginalPrice ?? product.originalPrice;
+  int? get displayStockLeft => _apiStockLeft ?? product.stockLeft;
+
+  String? get displayDiscountTag {
+    if (displayOriginalPrice != null && displayOriginalPrice! > displayPrice) {
+      final off =
+          ((displayOriginalPrice! - displayPrice) / displayOriginalPrice! * 100)
+              .round();
+      if (off > 0) {
+        return '$off% OFF';
+      }
+    }
+    return product.discountTag;
   }
+
+  String get productDescription {
+    if ((_apiDescription ?? '').trim().isNotEmpty) {
+      return _apiDescription!.trim();
+    }
+    return 'No description available.';
+  }
+
+  String? _apiDescription;
 
   Future<void> init() async {
     if (isLoading) return;
@@ -62,7 +94,9 @@ class ProductDetailsViewModel extends BaseViewModel {
     clearError();
 
     try {
-      _imageUrls = [product.imageUrl];
+      _imageUrls = product.imageUrl.trim().isNotEmpty
+          ? <String>[product.imageUrl]
+          : const <String>[];
 
       await Future.wait([_cartRepository.init(), _wishlistRepository.init()]);
 
@@ -77,29 +111,138 @@ class ProductDetailsViewModel extends BaseViewModel {
         _syncWishlistSnapshot,
       );
 
-      final all = await _productRepository.getProducts(product.category);
-      _similarProducts = all
-          .where((p) => p.id != product.id)
-          .take(6)
-          .toList(growable: false);
+      _similarProducts = const <ProductModel>[];
+      _recommendedProducts = const <ProductModel>[];
+      _categorySearchProducts = const <ProductModel>[];
 
-      // Recommended — products from the next category in the enum ring
-      final allCategories = ProductCategory.values;
-      final nextCat =
-          allCategories[(product.category.index + 1) % allCategories.length];
-      final recommended = await _productRepository.getProducts(nextCat);
-      _recommendedProducts = recommended.take(6).toList(growable: false);
-
-      // Because you searched — full same-category catalog, exclude current
-      _categorySearchProducts = all
-          .where((p) => p.id != product.id)
-          .toList(growable: false);
+      await _hydrateFromApi();
     } catch (_) {
       setError('Failed to load product.');
     } finally {
       setLoading(false);
       notifyListeners();
     }
+  }
+
+  Future<void> _hydrateFromApi() async {
+    final productId = int.tryParse(product.id);
+    if (productId == null) return;
+
+    try {
+      final detail = await _apiService.getProductDetails(productId);
+      final detailData = detail.data;
+
+      if (detailData != null) {
+        final images = (detailData.images ?? const <String>[])
+            .map(_apiService.resolveImageUrl)
+            .where((e) => e.trim().isNotEmpty)
+            .toList(growable: false);
+        if (images.isNotEmpty) {
+          _imageUrls = images;
+        }
+
+        if ((detailData.name ?? '').trim().isNotEmpty) {
+          _apiName = detailData.name;
+        }
+        if ((detailData.categoryName ?? '').trim().isNotEmpty) {
+          _apiCategoryLabel = detailData.categoryName;
+        }
+        if ((detailData.description ?? '').trim().isNotEmpty) {
+          _apiDescription = detailData.description;
+        }
+
+        final base = double.tryParse(
+          (detailData.price ?? '').toString().trim(),
+        );
+        final discount = double.tryParse(
+          (detailData.discountPrice ?? '').toString().trim(),
+        );
+
+        if (base != null) {
+          if (discount != null && discount > 0 && discount < base) {
+            _apiPrice = discount;
+            _apiOriginalPrice = base;
+          } else {
+            _apiPrice = base;
+            _apiOriginalPrice = null;
+          }
+        }
+
+        _apiStockLeft = detailData.stockQuantity ?? detailData.stock;
+      }
+
+      final list = await _apiService.getProducts();
+      final apiAll = (list.data ?? const <ProductItemModel>[])
+          .asMap()
+          .entries
+          .map((entry) => _mapApiProduct(entry.value, entry.key))
+          .toList(growable: false);
+
+      final sameCategory = apiAll
+          .where((p) {
+            final cat = p.category.displayName.toLowerCase();
+            final current = displayCategoryLabel.toLowerCase();
+            return cat == current && p.id != product.id;
+          })
+          .toList(growable: false);
+
+      if (sameCategory.isNotEmpty) {
+        _similarProducts = sameCategory.take(6).toList(growable: false);
+        _categorySearchProducts = sameCategory;
+      }
+
+      if (apiAll.isNotEmpty) {
+        _recommendedProducts = apiAll
+            .where((p) => p.id != product.id)
+            .take(6)
+            .toList(growable: false);
+      }
+    } catch (_) {
+      // Keep static fallback data if API fails.
+    }
+  }
+
+  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+    final id = item.id?.toString() ?? 'detail-api-$index';
+    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+
+    return ProductModel(
+      id: id,
+      category: _categoryFromApiName(item.categoryName),
+      name: (item.name ?? '').trim().isEmpty
+          ? 'Product ${index + 1}'
+          : item.name!.trim(),
+      imageUrl: _apiService.resolveImageUrl(item.images),
+      price: price,
+      originalPrice: null,
+      discountTag: null,
+      rating: null,
+      reviewCount: null,
+      reviews: const [],
+      stockLeft: null,
+      isFastDelivery: null,
+      isBestSeller: null,
+    );
+  }
+
+  ProductCategory _categoryFromApiName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return ProductCategory.grocery;
   }
 
   void _syncCartSnapshot(List<CartItemModel> items) {
@@ -178,17 +321,17 @@ class ProductDetailsViewModel extends BaseViewModel {
     );
   }
 
-  Future<void> toggleWishlist() async {
+  Future<WishlistActionResult> toggleWishlist() async {
     if (_isWishlisted) {
-      await _wishlistRepository.removeItem(product.id);
-      return;
+      return WishlistCoordinator.instance.removeItem(product.id);
     }
 
-    await _wishlistRepository.upsertItem(
+    return WishlistCoordinator.instance.addItem(
       WishlistItemModel(
         productId: product.id,
         name: product.name,
         imageUrl: product.imageUrl,
+        sku: null,
         unitPrice: product.price,
       ),
     );

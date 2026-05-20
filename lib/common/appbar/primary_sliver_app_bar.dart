@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../searchbar/app_search_bar.dart';
 import '../buttons/cart_icon_button.dart';
+import '../buttons/wishlist_icon_button.dart';
 import '../../core/tobacco/tobacco_keyword_matcher.dart';
 import '../../core/tobacco/tobacco_search_redirector.dart';
 
@@ -81,6 +82,8 @@ class PrimarySliverAppBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
+            WishlistIconButton(currentBottomBarIndex: currentBottomBarIndex),
+            const SizedBox(width: 4),
             CartIconButton(currentBottomBarIndex: currentBottomBarIndex),
           ],
         ),

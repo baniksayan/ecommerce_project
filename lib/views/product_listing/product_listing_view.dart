@@ -17,7 +17,6 @@ import '../../core/utils/platform_helper.dart';
 import '../../core/tobacco/tobacco_keyword_matcher.dart';
 import '../../core/tobacco/tobacco_search_redirector.dart';
 import '../../data/models/product_model.dart';
-import '../../data/repositories/static_product_repository.dart';
 import '../../viewmodels/product_listing_viewmodel.dart';
 import '../main/main_view.dart';
 import '../product_details/product_details_view.dart';
@@ -69,10 +68,7 @@ class _ProductListingViewState extends State<ProductListingView> {
   @override
   void initState() {
     super.initState();
-    _vm = ProductListingViewModel(
-      repository: const StaticProductRepository(),
-      category: widget.category,
-    );
+    _vm = ProductListingViewModel(category: widget.category);
 
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);

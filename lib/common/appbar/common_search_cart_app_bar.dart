@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/platform_helper.dart';
 import '../../common/buttons/cart_icon_button.dart';
+import '../../common/buttons/wishlist_icon_button.dart';
 import '../../common/searchbar/app_search_bar.dart';
 import '../../core/tobacco/tobacco_keyword_matcher.dart';
 import '../../core/tobacco/tobacco_search_redirector.dart';
@@ -95,7 +96,13 @@ class CommonSearchCartAppBar extends StatelessWidget
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: searchBar,
         ),
-        trailing: CartIconButton(currentBottomBarIndex: currentBottomBarIndex),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            WishlistIconButton(currentBottomBarIndex: currentBottomBarIndex),
+            CartIconButton(currentBottomBarIndex: currentBottomBarIndex),
+          ],
+        ),
       );
     }
 
@@ -115,6 +122,8 @@ class CommonSearchCartAppBar extends StatelessWidget
           children: [
             Expanded(child: searchBar),
             const SizedBox(width: 12),
+            WishlistIconButton(currentBottomBarIndex: currentBottomBarIndex),
+            const SizedBox(width: 4),
             CartIconButton(currentBottomBarIndex: currentBottomBarIndex),
           ],
         ),

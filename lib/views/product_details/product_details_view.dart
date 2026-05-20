@@ -12,6 +12,7 @@ import '../../common/cards/app_card.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/image_viewer/zoomable_image_viewer.dart';
 import '../../common/snackbars/app_snackbar.dart';
+import '../../core/auth/auth_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
@@ -19,7 +20,6 @@ import '../../core/utils/platform_helper.dart';
 import '../../data/models/product_model.dart';
 import '../../data/repositories/hive_cart_repository.dart';
 import '../../data/repositories/hive_wishlist_repository.dart';
-import '../../data/repositories/static_product_repository.dart';
 import '../../viewmodels/product_details_viewmodel.dart';
 import '../cart/cart_view.dart';
 import '../home/home_widgets.dart';
@@ -107,7 +107,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     super.initState();
     _vm = ProductDetailsViewModel(
       product: widget.product,
-      productRepository: const StaticProductRepository(),
       cartRepository: HiveCartRepository(),
       wishlistRepository: HiveWishlistRepository(),
     );
@@ -169,13 +168,23 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   Future<void> _handleToggleWishlist() async {
+    final allowed = await handleProtectedAction(context);
+    if (!allowed) return;
     HapticFeedback.selectionClick();
     _pulseWishlist();
-    await _vm.toggleWishlist();
+    final result = await _vm.toggleWishlist();
+    if (!mounted) return;
+    if (result.success) {
+      AppSnackbar.success(context, result.message);
+    } else {
+      AppSnackbar.warning(context, result.message);
+    }
   }
 
   Future<void> _handleAddToCart() async {
     if (_isAddingToCart || _vm.isInCart) return;
+    final allowed = await handleProtectedAction(context);
+    if (!allowed) return;
     HapticFeedback.lightImpact();
     _pulseAddToCart();
     setState(() => _isAddingToCart = true);
@@ -220,7 +229,10 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     );
   }
 
-  void _goToCart() {
+  Future<void> _goToCart() async {
+    final allowed = await handleProtectedAction(context);
+    if (!allowed || !mounted) return;
+
     Navigator.of(context).push(
       PlatformHelper.isIOS
           ? CupertinoPageRoute<void>(
@@ -449,9 +461,9 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
         : AppColors.lightLowStock;
 
     final product = widget.product;
-    final outOfStock = product.stockLeft != null && product.stockLeft! <= 0;
-    final lowStock =
-        product.stockLeft != null && product.stockLeft! <= 5 && !outOfStock;
+    final stockLeft = _vm.displayStockLeft;
+    final outOfStock = stockLeft != null && stockLeft <= 0;
+    final lowStock = stockLeft != null && stockLeft <= 5 && !outOfStock;
     final hPad = tabletMode ? 20.0 : 16.0;
 
     return Padding(
@@ -472,7 +484,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  product.category.displayName,
+                  _vm.displayCategoryLabel,
                   style: AppTextStyles.caption.copyWith(
                     fontWeight: FontWeight.w700,
                     color: primary,
@@ -504,7 +516,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Only ${product.stockLeft} left',
+                        'Only $stockLeft left',
                         style: AppTextStyles.caption.copyWith(
                           fontWeight: FontWeight.w800,
                           color: lowStockColor,
@@ -521,7 +533,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
 
           // ── Product name ──
           Text(
-            product.name,
+            _vm.displayName,
             style: AppTextStyles.heading2.copyWith(
               fontWeight: FontWeight.bold,
               color: onSurface,
@@ -591,9 +603,9 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
 
           // ── Price section ──
           _PriceDisplay(
-            price: product.price,
-            originalPrice: product.originalPrice,
-            discountTag: product.discountTag,
+            price: _vm.displayPrice,
+            originalPrice: _vm.displayOriginalPrice,
+            discountTag: _vm.displayDiscountTag,
           ),
 
           const SizedBox(height: 16),
@@ -741,6 +753,8 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
                     padding: const EdgeInsets.only(top: 14),
                     child: _ProductDetailsTable(
                       product: product,
+                      categoryLabel: _vm.displayCategoryLabel,
+                      stockLeft: stockLeft,
                       outOfStock: outOfStock,
                       dividerColor: theme.dividerColor,
                       onSurface: onSurface,
@@ -813,9 +827,8 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
           actionText: 'See All',
           onActionTap: () {
             final allCats = ProductCategory.values;
-            final nextCat = allCats[
-              (widget.product.category.index + 1) % allCats.length
-            ];
+            final nextCat =
+                allCats[(widget.product.category.index + 1) % allCats.length];
             Navigator.of(context).push(
               ProductListingView.route(
                 category: nextCat,
@@ -842,8 +855,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       child: Padding(
         padding: const EdgeInsets.only(top: 20),
         child: EcommerceSectionTitle(
-          title:
-              'Because you searched ${widget.product.category.displayName}',
+          title: 'Because you searched ${widget.product.category.displayName}',
           actionText: 'See All',
           onActionTap: () {
             Navigator.of(context).push(
@@ -1061,11 +1073,7 @@ class _ReviewCtaCard extends StatelessWidget {
                   color: primary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.reviews_outlined,
-                  size: 18,
-                  color: primary,
-                ),
+                child: Icon(Icons.reviews_outlined, size: 18, color: primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1549,6 +1557,8 @@ class _StatusPill extends StatelessWidget {
 
 class _ProductDetailsTable extends StatelessWidget {
   final ProductModel product;
+  final String? categoryLabel;
+  final int? stockLeft;
   final bool outOfStock;
   final Color dividerColor;
   final Color onSurface;
@@ -1557,6 +1567,8 @@ class _ProductDetailsTable extends StatelessWidget {
 
   const _ProductDetailsTable({
     required this.product,
+    this.categoryLabel,
+    this.stockLeft,
     required this.outOfStock,
     required this.dividerColor,
     required this.onSurface,
@@ -1567,13 +1579,13 @@ class _ProductDetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = [
-      _TableEntry('Category', product.category.displayName),
+      _TableEntry('Category', categoryLabel ?? product.category.displayName),
       _TableEntry('Pack Size', '1 unit'),
       _TableEntry('Origin', 'Locally sourced'),
-      if (product.stockLeft != null)
+      if (stockLeft != null)
         _TableEntry(
           'Availability',
-          outOfStock ? 'Out of stock' : '${product.stockLeft} units available',
+          outOfStock ? 'Out of stock' : '$stockLeft units available',
           valueColor: outOfStock ? errorColor : successColor,
         ),
       if (product.isFastDelivery == true)

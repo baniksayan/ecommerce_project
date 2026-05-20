@@ -3,37 +3,22 @@ import '../data/remote/auth/auth_api_service.dart';
 import '../data/remote/network/api_exception.dart';
 import '../core/auth/auth_coordinator.dart';
 
-enum LoginEmailStatus {
-  validUser,
-  notRegistered,
-  failed,
-}
+enum LoginEmailStatus { validUser, notRegistered, failed }
 
 class LoginEmailResult {
-  const LoginEmailResult({
-    required this.status,
-    this.message,
-  });
+  const LoginEmailResult({required this.status, this.message});
 
   final LoginEmailStatus status;
   final String? message;
 
   bool get shouldOpenOtpVerification => status == LoginEmailStatus.validUser;
-  bool get shouldRedirectToRegister =>
-      status == LoginEmailStatus.notRegistered;
+  bool get shouldRedirectToRegister => status == LoginEmailStatus.notRegistered;
 }
 
-enum VerifyOtpStatus {
-  success,
-  failed,
-}
+enum VerifyOtpStatus { success, failed }
 
 class VerifyOtpResult {
-  const VerifyOtpResult({
-    required this.status,
-    this.message,
-    this.user,
-  });
+  const VerifyOtpResult({required this.status, this.message, this.user});
 
   final VerifyOtpStatus status;
   final String? message;
@@ -42,17 +27,10 @@ class VerifyOtpResult {
   bool get isSuccess => status == VerifyOtpStatus.success;
 }
 
-enum RegisterStatus {
-  otpRequired,
-  alreadyRegistered,
-  failed,
-}
+enum RegisterStatus { otpRequired, alreadyRegistered, failed }
 
 class RegisterResult {
-  const RegisterResult({
-    required this.status,
-    this.message,
-  });
+  const RegisterResult({required this.status, this.message});
 
   final RegisterStatus status;
   final String? message;
@@ -72,6 +50,7 @@ class AuthViewModel {
   // ── Convenience passthrough to coordinator ────────────────────────────────
 
   static bool get isLoggedIn => AuthCoordinator.instance.isLoggedIn;
+  static int? get currentUserId => AuthCoordinator.instance.currentUserId;
 
   static Future<void> logout() => AuthCoordinator.instance.logout();
 
@@ -136,7 +115,8 @@ class AuthViewModel {
 
       return LoginEmailResult(
         status: LoginEmailStatus.notRegistered,
-        message: _lastAuthMessage ??
+        message:
+            _lastAuthMessage ??
             'This email is not registered. Please create an account.',
       );
     } on ApiException catch (error) {
@@ -170,6 +150,12 @@ class AuthViewModel {
       if (response.success == true) {
         _authenticatedUser = response.user;
         await AuthCoordinator.instance.setLoggedIn(true);
+        await AuthCoordinator.instance.setUserSession(
+          userId: int.tryParse(_authenticatedUser?.id ?? ''),
+          token: _authenticatedUser?.token,
+          name: _authenticatedUser?.name,
+          email: _authenticatedUser?.email,
+        );
         return VerifyOtpResult(
           status: VerifyOtpStatus.success,
           message: _lastAuthMessage ?? 'Verification successful.',
@@ -221,8 +207,7 @@ class AuthViewModel {
 
       if (normalizedEmail == 'sayanbanikcob@gmail.com' ||
           normalizedMessage.contains('already registered')) {
-        _lastAuthMessage =
-            'This email is already registered. Please log in.';
+        _lastAuthMessage = 'This email is already registered. Please log in.';
         return RegisterResult(
           status: RegisterStatus.alreadyRegistered,
           message: _lastAuthMessage,

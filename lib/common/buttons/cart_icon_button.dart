@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/auth/auth_guard.dart';
 import '../../core/cart/cart_coordinator.dart';
 
 class CartIconButton extends StatelessWidget {
@@ -42,9 +43,11 @@ class CartIconButton extends StatelessWidget {
                   child: IconButton(
                     icon: Icon(Icons.shopping_cart_outlined, color: primary),
                     tooltip: 'Cart',
-                    onPressed: () {
+                    onPressed: () async {
                       HapticFeedback.lightImpact();
                       if (!enableNavigation) return;
+                      final allowed = await handleProtectedAction(context);
+                      if (!allowed || !context.mounted) return;
                       CartCoordinator.instance.openCart(
                         context,
                         currentBottomBarIndex: currentBottomBarIndex,

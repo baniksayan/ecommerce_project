@@ -1,5 +1,6 @@
 import '../data/models/product_model.dart';
-import '../data/repositories/product_repository.dart';
+import '../models/product_list_model.dart';
+import '../services/api_service.dart';
 import 'base_viewmodel.dart';
 
 enum ProductSort {
@@ -61,13 +62,10 @@ extension ProductSortX on ProductSort {
 }
 
 class ProductListingViewModel extends BaseViewModel {
-  final ProductRepository _repository;
   final ProductCategory category;
+  final ApiService _apiService = ApiService();
 
-  ProductListingViewModel({
-    required ProductRepository repository,
-    required this.category,
-  }) : _repository = repository;
+  ProductListingViewModel({required this.category});
 
   List<ProductModel> _products = const <ProductModel>[];
   List<ProductModel> get products => _products;
@@ -137,13 +135,64 @@ class ProductListingViewModel extends BaseViewModel {
     setLoading(true);
     clearError();
     try {
-      _products = await _repository.getProducts(category);
+      final response = await _apiService.getProducts();
+      final mapped = (response.data ?? const <ProductItemModel>[])
+          .asMap()
+          .entries
+          .map((entry) => _mapApiProduct(entry.value, entry.key))
+          .where((p) => p.category == category)
+          .toList(growable: false);
+
+      _products = mapped;
+
       _hasMore = false;
     } catch (_) {
       setError('Failed to load products.');
     } finally {
       setLoading(false);
     }
+  }
+
+  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+    final id = item.id?.toString() ?? 'listing-api-$index';
+    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    return ProductModel(
+      id: id,
+      category: _categoryFromApiName(item.categoryName),
+      name: (item.name ?? '').trim().isEmpty
+          ? 'Product ${index + 1}'
+          : item.name!.trim(),
+      imageUrl: _apiService.resolveImageUrl(item.images),
+      price: price,
+      originalPrice: null,
+      discountTag: null,
+      rating: null,
+      reviewCount: null,
+      reviews: const [],
+      stockLeft: null,
+      isFastDelivery: null,
+      isBestSeller: null,
+    );
+  }
+
+  ProductCategory _categoryFromApiName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return ProductCategory.grocery;
   }
 
   void setSearchQuery(String value) {

@@ -8,6 +8,7 @@ class WishlistItemModel {
   final String productId;
   final String name;
   final String? imageUrl;
+  final String? sku;
   final double unitPrice;
 
   const WishlistItemModel({
@@ -15,18 +16,21 @@ class WishlistItemModel {
     required this.name,
     required this.unitPrice,
     this.imageUrl,
+    this.sku,
   });
 
   WishlistItemModel copyWith({
     String? productId,
     String? name,
     String? imageUrl,
+    String? sku,
     double? unitPrice,
   }) {
     return WishlistItemModel(
       productId: productId ?? this.productId,
       name: name ?? this.name,
       imageUrl: imageUrl ?? this.imageUrl,
+      sku: sku ?? this.sku,
       unitPrice: unitPrice ?? this.unitPrice,
     );
   }
@@ -36,6 +40,7 @@ class WishlistItemModel {
       'productId': productId,
       'name': name,
       'imageUrl': imageUrl,
+      'sku': sku,
       'unitPrice': unitPrice,
     };
   }
@@ -47,6 +52,7 @@ class WishlistItemModel {
       productId: (json['productId'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       imageUrl: json['imageUrl']?.toString(),
+      sku: json['sku']?.toString(),
       unitPrice: rawPrice is num
           ? rawPrice.toDouble()
           : double.tryParse(rawPrice?.toString() ?? '') ?? 0.0,
