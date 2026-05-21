@@ -3,6 +3,7 @@ import 'dart:async';
 import '../data/models/cart_item_model.dart';
 import '../data/models/product_model.dart';
 import '../data/models/wishlist_item_model.dart';
+import '../core/cart/cart_coordinator.dart';
 import '../models/product_list_model.dart';
 import '../data/repositories/cart_repository.dart';
 import '../data/repositories/wishlist_repository.dart';
@@ -297,8 +298,8 @@ class ProductDetailsViewModel extends BaseViewModel {
     }
   }
 
-  Future<void> addToCart() async {
-    await _cartRepository.upsertItem(
+  Future<CartActionResult> addToCart() async {
+    return CartCoordinator.instance.addItem(
       CartItemModel(
         productId: product.id,
         name: product.name,
@@ -310,7 +311,7 @@ class ProductDetailsViewModel extends BaseViewModel {
   }
 
   Future<void> addProductToCart(ProductModel p, {int quantity = 1}) async {
-    await _cartRepository.upsertItem(
+    await CartCoordinator.instance.addItem(
       CartItemModel(
         productId: p.id,
         name: p.name,

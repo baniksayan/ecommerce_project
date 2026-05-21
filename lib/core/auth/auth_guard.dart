@@ -21,9 +21,10 @@ Future<bool> handleProtectedAction(
   String message = 'Please login first',
 }) async {
   final isLoggedIn = isUserLoggedIn();
-  final userId = currentUserId();
+  final hasToken = AuthCoordinator.instance.hasActiveToken();
+  final hasUserId = AuthCoordinator.instance.currentUserId != null;
 
-  if (isLoggedIn && userId != null) {
+  if (isLoggedIn && (hasToken || hasUserId)) {
     return true;
   }
 
@@ -38,5 +39,7 @@ Future<bool> handleProtectedAction(
     MaterialPageRoute(builder: (_) => const EmailLoginView(fromDrawer: true)),
   );
 
-  return isUserLoggedIn() && currentUserId() != null;
+  return isUserLoggedIn() &&
+      (AuthCoordinator.instance.hasActiveToken() ||
+          AuthCoordinator.instance.currentUserId != null);
 }

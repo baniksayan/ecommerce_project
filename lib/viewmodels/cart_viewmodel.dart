@@ -1,28 +1,26 @@
 import 'dart:async';
 
+import '../core/cart/cart_coordinator.dart';
 import '../core/cart/cart_pricing.dart';
 import '../data/models/cart_item_model.dart';
-import '../data/repositories/cart_repository.dart';
 import 'base_viewmodel.dart';
 
 class CartViewModel extends BaseViewModel {
-  final CartRepository _repository;
   StreamSubscription<List<CartItemModel>>? _sub;
 
   List<CartItemModel> _items = const [];
   List<CartItemModel> get items => _items;
 
-  CartViewModel({required CartRepository repository})
-    : _repository = repository;
+  CartViewModel();
 
   Future<void> init() async {
     setLoading(true);
     clearError();
 
     try {
-      await _repository.init();
+      await CartCoordinator.instance.init();
       _sub?.cancel();
-      _sub = _repository.watchItems().listen((items) {
+      _sub = CartCoordinator.instance.watchItems().listen((items) {
         _items = items;
         notifyListeners();
       });
@@ -84,26 +82,26 @@ class CartViewModel extends BaseViewModel {
   Future<void> increment(String productId) async {
     final item = _find(productId);
     if (item == null) return;
-    await _repository.setQuantity(productId, item.quantity + 1);
+    await CartCoordinator.instance.setQuantity(productId, item.quantity + 1);
   }
 
   Future<void> decrement(String productId) async {
     final item = _find(productId);
     if (item == null) return;
     if (item.quantity <= 1) return;
-    await _repository.setQuantity(productId, item.quantity - 1);
+    await CartCoordinator.instance.setQuantity(productId, item.quantity - 1);
   }
 
   Future<void> remove(String productId) async {
-    await _repository.removeItem(productId);
+    await CartCoordinator.instance.removeItem(productId);
   }
 
   Future<void> add(CartItemModel item) async {
-    await _repository.upsertItem(item);
+    await CartCoordinator.instance.addItem(item);
   }
 
   Future<void> clear() async {
-    await _repository.clear();
+    await CartCoordinator.instance.clear();
   }
 
   @override

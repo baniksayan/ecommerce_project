@@ -133,7 +133,7 @@ class _ProductGridCardState extends State<ProductGridCard> {
 
     setState(() => _isCartActionLoading = true);
     try {
-      await CartCoordinator.instance.addItem(
+      final result = await CartCoordinator.instance.addItem(
         CartItemModel(
           productId: widget.product.id,
           name: widget.product.name,
@@ -142,6 +142,12 @@ class _ProductGridCardState extends State<ProductGridCard> {
           quantity: 1,
         ),
       );
+      if (!mounted) return;
+      if (result.success) {
+        AppSnackbar.success(context, result.message);
+      } else {
+        AppSnackbar.warning(context, result.message);
+      }
     } finally {
       if (mounted) {
         setState(() => _isCartActionLoading = false);
@@ -158,7 +164,7 @@ class _ProductGridCardState extends State<ProductGridCard> {
 
     setState(() => _isCartActionLoading = true);
     try {
-      await CartCoordinator.instance.addItem(
+      final result = await CartCoordinator.instance.addItem(
         CartItemModel(
           productId: widget.product.id,
           name: widget.product.name,
@@ -167,6 +173,12 @@ class _ProductGridCardState extends State<ProductGridCard> {
           quantity: 1,
         ),
       );
+      if (!mounted) return;
+      if (result.success) {
+        AppSnackbar.success(context, result.message);
+      } else {
+        AppSnackbar.warning(context, result.message);
+      }
     } finally {
       if (mounted) {
         setState(() => _isCartActionLoading = false);

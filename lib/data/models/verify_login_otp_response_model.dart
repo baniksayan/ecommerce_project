@@ -4,11 +4,13 @@ class VerifyLoginOtpResponseModel {
   VerifyLoginOtpResponseModel({
     this.success,
     this.message,
+    this.token,
     this.user,
   });
 
   final bool? success;
   final String? message;
+  final String? token;
   final AuthUserModel? user;
 
   factory VerifyLoginOtpResponseModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,7 @@ class VerifyLoginOtpResponseModel {
     return VerifyLoginOtpResponseModel(
       success: _parseBool(json['success']),
       message: json['message']?.toString(),
+      token: _readToken(json),
       user: userJson == null ? null : AuthUserModel.fromJson(userJson),
     );
   }
@@ -24,8 +27,26 @@ class VerifyLoginOtpResponseModel {
     return <String, dynamic>{
       'success': success,
       'message': message,
+      'token': token,
       'user': user?.toJson(),
     };
+  }
+
+  static String? _readToken(Map<String, dynamic> json) {
+    final rootToken = json['token'] ?? json['access_token'];
+    if (rootToken != null && rootToken.toString().trim().isNotEmpty) {
+      return rootToken.toString();
+    }
+
+    final data = json['data'];
+    if (data is Map<String, dynamic>) {
+      final dataToken = data['token'] ?? data['access_token'];
+      if (dataToken != null && dataToken.toString().trim().isNotEmpty) {
+        return dataToken.toString();
+      }
+    }
+
+    return null;
   }
 
   static Map<String, dynamic>? _readUserJson(Map<String, dynamic> json) {

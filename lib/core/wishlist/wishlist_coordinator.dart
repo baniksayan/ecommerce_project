@@ -32,6 +32,10 @@ class WishlistCoordinator {
 
   bool _initialized = false;
 
+  bool get _hasSession =>
+      AuthCoordinator.instance.hasActiveToken() ||
+      AuthCoordinator.instance.currentUserId != null;
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -57,16 +61,11 @@ class WishlistCoordinator {
 
   Future<WishlistActionResult> addItem(WishlistItemModel item) async {
     await init();
-    await _repository.upsertItem(item);
-
-    final userId = AuthCoordinator.instance.currentUserId;
     final productId = int.tryParse(item.productId);
-    if (userId != null && productId != null) {
+    if (_hasSession && productId != null) {
       try {
-        final response = await _apiService.addToWishlist(
-          userId: userId,
-          productId: productId,
-        );
+        final response = await _apiService.addToWishlist(productId: productId);
+        await _syncFromServerIfPossible();
         return WishlistActionResult(
           success: response.success == true,
           message: (response.message ?? '').trim().isNotEmpty
@@ -74,49 +73,52 @@ class WishlistCoordinator {
               : 'Added to wishlist',
         );
       } catch (_) {
-        // Keep local wishlist responsive even when remote sync fails.
+        // Keep previous mirrored state when remote sync fails.
         return const WishlistActionResult(
           success: false,
-          message: 'Added locally. Server sync failed.',
+          message: 'Failed to add wishlist item. Please try again.',
         );
       }
     }
 
     return const WishlistActionResult(
-      success: true,
-      message: 'Added to wishlist',
+      success: false,
+      message: 'Please login first',
     );
   }
 
   Future<WishlistActionResult> removeItem(String productId) async {
     await init();
 
-    final userId = AuthCoordinator.instance.currentUserId;
     final numericProductId = int.tryParse(productId);
-    if (userId != null && numericProductId != null) {
-      try {
-        final response = await _apiService.removeFromWishlist(
-          userId: userId,
-          productId: numericProductId,
-        );
-        if (response.success != true) {
-          return WishlistActionResult(
-            success: false,
-            message: (response.message ?? '').trim().isNotEmpty
-                ? response.message!.trim()
-                : 'Could not remove wishlist item.',
-          );
-        }
-      } catch (_) {
-        // Keep local wishlist responsive even when remote sync fails.
-        return const WishlistActionResult(
+    if (!_hasSession || numericProductId == null) {
+      return const WishlistActionResult(
+        success: false,
+        message: 'Please login first',
+      );
+    }
+
+    try {
+      final response = await _apiService.removeFromWishlist(
+        productId: numericProductId,
+      );
+      if (response.success != true) {
+        return WishlistActionResult(
           success: false,
-          message: 'Failed to remove item from server.',
+          message: (response.message ?? '').trim().isNotEmpty
+              ? response.message!.trim()
+              : 'Could not remove wishlist item.',
         );
       }
+    } catch (_) {
+      return const WishlistActionResult(
+        success: false,
+        message: 'Failed to remove item from server.',
+      );
     }
 
     await _repository.removeItem(productId);
+    await _syncFromServerIfPossible();
     return const WishlistActionResult(
       success: true,
       message: 'Removed from wishlist',
@@ -138,23 +140,16 @@ class WishlistCoordinator {
       return const WishlistActionResult(success: true, message: '');
     }
 
-    if (!AuthCoordinator.instance.isLoggedIn) {
+    if (!AuthCoordinator.instance.isLoggedIn || !_hasSession) {
+      await _repository.clear();
       return const WishlistActionResult(
         success: false,
         message: 'Please login first',
       );
     }
 
-    final userId = AuthCoordinator.instance.currentUserId;
-    if (userId == null) {
-      return const WishlistActionResult(
-        success: false,
-        message: 'User session not ready. Please login again.',
-      );
-    }
-
     try {
-      final response = await _apiService.getWishlist(userId: userId);
+      final response = await _apiService.getWishlist();
       if (response.success != true) {
         // Keep the last valid local state when server reports failure.
         return WishlistActionResult(
@@ -173,8 +168,8 @@ class WishlistCoordinator {
       }
 
       if (apiItems.isEmpty) {
-        // Never clear local wishlist on page-open sync.
-        // Empty server payload should not delete locally saved items.
+        // Explicitly mirror current user's empty server list.
+        await _repository.clear();
         return const WishlistActionResult(success: true, message: '');
       }
 
@@ -207,6 +202,7 @@ class WishlistCoordinator {
         );
       }
 
+      await _repository.clear();
       for (final item in mapped) {
         await _repository.upsertItem(item);
       }

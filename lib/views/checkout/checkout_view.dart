@@ -9,7 +9,6 @@ import '../../core/location/address_location_coordinator.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
 import '../../data/models/address_models.dart';
-import '../../data/repositories/hive_cart_repository.dart';
 import '../../viewmodels/cart_viewmodel.dart';
 import '../addresses/manual_address_form_view.dart';
 
@@ -39,7 +38,7 @@ class _CheckoutViewState extends State<CheckoutView> {
   @override
   void initState() {
     super.initState();
-    _cartVm = CartViewModel(repository: HiveCartRepository());
+    _cartVm = CartViewModel();
     _cartVm.init();
     _loadAddressCache();
   }

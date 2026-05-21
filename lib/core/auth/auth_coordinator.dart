@@ -28,6 +28,12 @@ class AuthCoordinator {
     if (_initialized) return;
     _initialized = true;
     _box = await Hive.openBox(_boxName);
+
+    final hasToken = (currentUserToken ?? '').trim().isNotEmpty;
+    final hasUserId = currentUserId != null;
+    if ((hasToken || hasUserId) && !isLoggedIn) {
+      await setLoggedIn(true);
+    }
   }
 
   /// Whether a user session is currently active.
@@ -45,8 +51,28 @@ class AuthCoordinator {
   }
 
   String? get currentUserToken => _box?.get(_keyUserToken)?.toString();
+  Future<void> saveToken(String token) async {
+    await _box?.put(_keyUserToken, token);
+    await _box?.put(_keyLoggedIn, true);
+  }
+
+  String? getToken() => currentUserToken;
+
+  Future<void> clearToken() async {
+    await _box?.delete(_keyUserToken);
+  }
+
+  bool hasActiveToken() => (currentUserToken ?? '').trim().isNotEmpty;
+
   String? get currentUserName => _box?.get(_keyUserName)?.toString();
   String? get currentUserEmail => _box?.get(_keyUserEmail)?.toString();
+
+  Map<String, dynamic> get currentUserSnapshot => <String, dynamic>{
+    'userId': currentUserId,
+    'name': currentUserName,
+    'email': currentUserEmail,
+    'token': currentUserToken,
+  };
 
   /// Persist login state (true on successful OTP verification).
   Future<void> setLoggedIn(bool value) async {
@@ -59,6 +85,16 @@ class AuthCoordinator {
     String? name,
     String? email,
   }) async {
+    final previousUserId = currentUserId;
+
+    if (userId != null && previousUserId != null && previousUserId != userId) {
+      final cartBox = await Hive.openBox('cart_box');
+      await cartBox.put('items', '[]');
+
+      final wishlistBox = await Hive.openBox('wishlist_box');
+      await wishlistBox.put('items', '[]');
+    }
+
     if (userId != null) {
       await _box?.put(_keyUserId, userId);
     }
@@ -86,5 +122,12 @@ class AuthCoordinator {
     await _box?.delete(_keyUserToken);
     await _box?.delete(_keyUserName);
     await _box?.delete(_keyUserEmail);
+
+    // Clear user-scoped caches so next session starts cleanly.
+    final cartBox = await Hive.openBox('cart_box');
+    await cartBox.put('items', '[]');
+
+    final wishlistBox = await Hive.openBox('wishlist_box');
+    await wishlistBox.put('items', '[]');
   }
 }

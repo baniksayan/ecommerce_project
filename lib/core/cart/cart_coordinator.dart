@@ -8,9 +8,17 @@ import '../../core/utils/platform_helper.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/repositories/cart_repository.dart';
 import '../../data/repositories/hive_cart_repository.dart';
+import '../../models/cart_add_model.dart';
 import '../../models/cart_detail_model.dart';
 import '../../services/api_service.dart';
 import '../../views/cart/cart_view.dart';
+
+class CartActionResult {
+  final bool success;
+  final String message;
+
+  const CartActionResult({required this.success, required this.message});
+}
 
 /// Global coordinator for Cart state.
 ///
@@ -29,6 +37,10 @@ class CartCoordinator {
   final ValueNotifier<double> subtotal = ValueNotifier<double>(0.0);
 
   bool _initialized = false;
+
+  bool get _hasSession =>
+      AuthCoordinator.instance.hasActiveToken() ||
+      AuthCoordinator.instance.currentUserId != null;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -50,59 +62,109 @@ class CartCoordinator {
     await _syncFromServerIfPossible();
   }
 
-  Future<void> addItem(CartItemModel item) async {
+  Future<CartActionResult> addItem(CartItemModel item) async {
     await init();
-    await _repository.upsertItem(item);
-    await _syncAddToServer(item);
+
+    final productId = int.tryParse(item.productId.trim());
+    final safeQuantity = item.quantity.clamp(1, 999);
+    if (!_hasSession) {
+      return const CartActionResult(
+        success: false,
+        message: 'Please login first',
+      );
+    }
+    if (productId == null) {
+      return CartActionResult(
+        success: false,
+        message:
+            'Could not add to cart. Product ID: ${item.productId.trim()}, Qty: $safeQuantity',
+      );
+    }
+
+    Cartadd? response;
+    try {
+      response = await _apiService.addToCart(
+        productId: productId,
+        quantity: safeQuantity,
+        productName: item.name,
+      );
+    } on ApiServiceException catch (e) {
+      return CartActionResult(
+        success: false,
+        message:
+            'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: ${e.message}',
+      );
+    } catch (_) {
+      return CartActionResult(
+        success: false,
+        message:
+            'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Please try again.',
+      );
+    }
+
+    try {
+      await _syncFromServerIfPossible();
+    } catch (_) {
+      // Add request already succeeded; ignore sync errors for user feedback.
+    }
+
+    if (response.success == true) {
+      return CartActionResult(
+        success: true,
+        message: (response.message ?? '').trim().isNotEmpty
+            ? response.message!.trim()
+            : 'Added to cart',
+      );
+    }
+
+    final serverMessage = (response.message ?? '').trim().isNotEmpty
+        ? response.message!.trim()
+        : 'Unknown server error';
+    return CartActionResult(
+      success: false,
+      message:
+          'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: $serverMessage',
+    );
   }
 
   Future<void> setQuantity(String productId, int quantity) async {
     await init();
-    await _repository.setQuantity(productId, quantity);
-
-    final numericProductId = int.tryParse(productId);
-    final userId = AuthCoordinator.instance.currentUserId;
-    if (userId != null && numericProductId != null) {
+    final numericProductId = int.tryParse(productId.trim());
+    final safeQuantity = quantity.clamp(1, 999);
+    if (_hasSession && numericProductId != null) {
       try {
         await _apiService.addToCart(
-          userId: userId,
           productId: numericProductId,
-          quantity: quantity,
+          quantity: safeQuantity,
         );
+        await _syncFromServerIfPossible();
       } catch (_) {
-        // Keep local cart responsive even when remote sync fails.
+        // Keep previous mirrored state when remote sync fails.
       }
     }
   }
 
   Future<void> removeItem(String productId) async {
     await init();
-    await _repository.removeItem(productId);
-
-    final numericProductId = int.tryParse(productId);
-    final userId = AuthCoordinator.instance.currentUserId;
-    if (userId != null && numericProductId != null) {
+    final numericProductId = int.tryParse(productId.trim());
+    if (_hasSession && numericProductId != null) {
       try {
-        await _apiService.removeFromCart(
-          userId: userId,
-          productId: numericProductId,
-        );
+        await _apiService.removeFromCart(productId: numericProductId);
+        await _syncFromServerIfPossible();
       } catch (_) {
-        // Keep local cart responsive even when remote sync fails.
+        // Keep previous mirrored state when remote sync fails.
       }
     }
   }
 
   Future<void> clear() async {
     await init();
-    await _repository.clear();
-
-    final userId = AuthCoordinator.instance.currentUserId;
-    if (userId != null) {
+    if (_hasSession) {
       try {
-        await _apiService.clearCart(userId: userId);
+        await _apiService.clearCart();
+        await _syncFromServerIfPossible();
       } catch (_) {
-        // Keep local cart responsive even when remote sync fails.
+        // Keep previous mirrored state when remote sync fails.
       }
     }
   }
@@ -118,17 +180,13 @@ class CartCoordinator {
       return;
     }
 
-    if (!AuthCoordinator.instance.isLoggedIn) {
-      return;
-    }
-
-    final userId = AuthCoordinator.instance.currentUserId;
-    if (userId == null) {
+    if (!AuthCoordinator.instance.isLoggedIn || !_hasSession) {
+      await _repository.clear();
       return;
     }
 
     try {
-      final response = await _apiService.getCartDetail(userId: userId);
+      final response = await _apiService.getCartDetail();
       final items = response.data?.items ?? <CartDetailItem>[];
 
       await _repository.clear();
@@ -154,25 +212,6 @@ class CartCoordinator {
       }
     } catch (_) {
       // Do not interrupt app flow for sync failures.
-    }
-  }
-
-  Future<void> _syncAddToServer(CartItemModel item) async {
-    final userId = AuthCoordinator.instance.currentUserId;
-    final productId = int.tryParse(item.productId);
-
-    if (userId == null || productId == null) {
-      return;
-    }
-
-    try {
-      await _apiService.addToCart(
-        userId: userId,
-        productId: productId,
-        quantity: item.quantity,
-      );
-    } catch (_) {
-      // Keep local cart responsive even when remote sync fails.
     }
   }
 

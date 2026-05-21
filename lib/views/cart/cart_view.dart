@@ -20,7 +20,6 @@ import '../../data/models/address_models.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/wishlist_item_model.dart';
-import '../../data/repositories/hive_cart_repository.dart';
 import '../../viewmodels/cart_viewmodel.dart';
 import '../addresses/manual_address_form_view.dart';
 import '../checkout/checkout_view.dart';
@@ -96,7 +95,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _vm = CartViewModel(repository: HiveCartRepository());
+    _vm = CartViewModel();
     _vm.init();
     _loadAddressCache();
 

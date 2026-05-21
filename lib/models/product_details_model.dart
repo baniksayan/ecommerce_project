@@ -59,7 +59,8 @@ class ProductDetailData {
   });
 
   ProductDetailData.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
+    final rawId = json['id'] ?? json['product_id'] ?? json['productId'];
+    id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
     name = json['name'];
     slug = json['slug'];
     description = json['description'];

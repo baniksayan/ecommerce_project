@@ -149,10 +149,19 @@ class AuthViewModel {
 
       if (response.success == true) {
         _authenticatedUser = response.user;
-        await AuthCoordinator.instance.setLoggedIn(true);
+        final token = (response.token ?? _authenticatedUser?.token ?? '')
+            .trim();
+        final resolvedUserId = int.tryParse(_authenticatedUser?.id ?? '');
+        if (token.isNotEmpty) {
+          await AuthCoordinator.instance.saveToken(token);
+        }
+
+        await AuthCoordinator.instance.setLoggedIn(
+          token.isNotEmpty || resolvedUserId != null,
+        );
         await AuthCoordinator.instance.setUserSession(
-          userId: int.tryParse(_authenticatedUser?.id ?? ''),
-          token: _authenticatedUser?.token,
+          userId: resolvedUserId,
+          token: token.isNotEmpty ? token : _authenticatedUser?.token,
           name: _authenticatedUser?.name,
           email: _authenticatedUser?.email,
         );

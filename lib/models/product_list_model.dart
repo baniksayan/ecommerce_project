@@ -40,7 +40,8 @@ class ProductItemModel {
   });
 
   ProductItemModel.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
+    final rawId = json['id'] ?? json['product_id'] ?? json['productId'];
+    id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
     name = json['name'];
     price = json['price'];
     images = json['images'];

@@ -17,7 +17,13 @@ class AuthUserModel {
 
   factory AuthUserModel.fromJson(Map<String, dynamic> json) {
     return AuthUserModel(
-      id: (json['id'] ?? json['user_id'])?.toString(),
+      id:
+          (json['id'] ??
+                  json['user_id'] ??
+                  json['userId'] ??
+                  json['uid'] ??
+                  json['customer_id'])
+              ?.toString(),
       name: (json['name'] ?? json['full_name'])?.toString(),
       email: json['email']?.toString(),
       phone: (json['phone'] ?? json['mobile'])?.toString(),

@@ -233,10 +233,7 @@ class _HomeViewState extends State<HomeView> {
 
     return List.generate(4, (i) {
       final base = source[(start + i) % source.length];
-      return base.copyWith(
-        id: '${base.id}-$sectionIndex-$i',
-        category: sectionCategory,
-      );
+      return base.copyWith(category: sectionCategory);
     });
   }
 

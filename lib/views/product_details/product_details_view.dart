@@ -189,7 +189,13 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     _pulseAddToCart();
     setState(() => _isAddingToCart = true);
     try {
-      await _vm.addToCart();
+      final result = await _vm.addToCart();
+      if (!mounted) return;
+      if (result.success) {
+        AppSnackbar.success(context, result.message);
+      } else {
+        AppSnackbar.warning(context, result.message);
+      }
     } finally {
       if (mounted) setState(() => _isAddingToCart = false);
     }
