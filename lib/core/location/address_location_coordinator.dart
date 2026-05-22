@@ -40,14 +40,17 @@ class AddressLocationCoordinator {
   ///
   /// - On first install, requests permission and caches the initial detected location.
   /// - If services are off, prompts the user to enable them.
-  Future<void> ensureFirstInstallDetection(BuildContext context) async {
+  Future<void> ensureFirstInstallDetection(
+    BuildContext context, {
+    bool requestPermissionIfNeeded = true,
+  }) async {
     await init();
     if (_repo.isFirstInstallCompleted) return;
 
     try {
       await _detectAndCache(
         context: context,
-        requestPermissionIfNeeded: true,
+        requestPermissionIfNeeded: requestPermissionIfNeeded,
         showBlockingPrompts: true,
         replaceOnlyIfMoved: false,
       );

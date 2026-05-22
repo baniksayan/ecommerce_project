@@ -6,6 +6,7 @@ import 'core/tobacco/tobacco_access_coordinator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/responsive/media_query_helper.dart';
 import 'core/location/address_location_coordinator.dart';
+import 'core/permissions/app_permission_coordinator.dart';
 import 'core/wishlist/wishlist_coordinator.dart';
 import 'services/session_service.dart';
 import 'views/splash/splash_view.dart';
@@ -43,8 +44,12 @@ class _EnchantedForestAppState extends State<EnchantedForestApp>
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AppPermissionCoordinator.instance.requestPermissionsOnFirstLaunch(
+        context,
+      );
       await AddressLocationCoordinator.instance.ensureFirstInstallDetection(
         context,
+        requestPermissionIfNeeded: false,
       );
       await AddressLocationCoordinator.instance.syncOnAppOpenWithPrompts(
         context,

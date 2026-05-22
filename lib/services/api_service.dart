@@ -536,7 +536,13 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException {
+    } on SocketException catch (e) {
+      final details = e.message.toLowerCase();
+      if (details.contains('failed host lookup')) {
+        throw const ApiServiceException(
+          'DNS lookup failed for api.mandal-variety.com. Check internet, DNS, and base URL host.',
+        );
+      }
       throw const ApiServiceException(
         'No internet connection. Please check network and retry.',
       );
@@ -596,7 +602,13 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException {
+    } on SocketException catch (e) {
+      final details = e.message.toLowerCase();
+      if (details.contains('failed host lookup')) {
+        throw const ApiServiceException(
+          'DNS lookup failed for api.mandal-variety.com. Check internet, DNS, and base URL host.',
+        );
+      }
       throw const ApiServiceException(
         'No internet connection. Please check network and retry.',
       );
@@ -655,7 +667,13 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException {
+    } on SocketException catch (e) {
+      final details = e.message.toLowerCase();
+      if (details.contains('failed host lookup')) {
+        throw const ApiServiceException(
+          'DNS lookup failed for api.mandal-variety.com. Check internet, DNS, and base URL host.',
+        );
+      }
       throw const ApiServiceException(
         'No internet connection. Please check network and retry.',
       );

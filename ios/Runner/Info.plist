@@ -26,6 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>api.mandal-variety.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -89,6 +102,20 @@
         <string>szn-mapy</string>
     </array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We use your location to detect your current delivery address.</string>
+	<string>We use your location for live tracking, nearby services, and address detection.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location in the background for live service tracking when the app is minimized.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We use your location in the background for live service tracking when the app is minimized.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is needed for voice notes and in-app communication.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo access is needed to upload attachments and profile pictures.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Photo library access is needed to save and attach media files.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
