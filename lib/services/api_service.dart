@@ -12,6 +12,9 @@ import '../models/cart_detail_model.dart';
 import '../models/cart_list_model.dart';
 import '../models/cart_remove_model.dart';
 import '../models/categories_model.dart';
+import '../models/manage_policies_model.dart';
+import '../models/policy_detail_model.dart';
+import '../models/policy_list_model.dart';
 import '../models/product_details_model.dart';
 import '../models/product_list_model.dart';
 import '../models/wishlist_add_model.dart';
@@ -62,6 +65,31 @@ class ApiService {
       },
     );
     return Productdetails.fromJson(jsonMap);
+  }
+
+  Future<ListPolicies> getPolicies() async {
+    final jsonMap = await _get('policies/list.php');
+    return ListPolicies.fromJson(jsonMap);
+  }
+
+  Future<PolicyDetail> getPolicyDetail({required String slug}) async {
+    final jsonMap = await _get(
+      'policies/detail.php',
+      queryParameters: <String, String>{'slug': slug},
+    );
+    return PolicyDetail.fromJson(jsonMap);
+  }
+
+  Future<ManagePolicies> managePolicies({
+    required Map<String, dynamic> payload,
+    bool withAuth = false,
+  }) async {
+    final jsonMap = await _post(
+      'policies/manage.php',
+      body: payload,
+      withAuth: withAuth,
+    );
+    return ManagePolicies.fromJson(jsonMap);
   }
 
   Future<Cartlist> getCartList({int? userId}) async {

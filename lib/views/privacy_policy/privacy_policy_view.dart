@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/theme/app_text_styles.dart';
-import '../../common/buttons/cart_icon_button.dart';
-import '../../core/theme/app_colors.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
+import '../../common/buttons/cart_icon_button.dart';
+import '../../common/pages/no_internet_page.dart';
+import '../../core/network/network_error_utils.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../models/policy_detail_model.dart';
+import '../../models/policy_list_model.dart';
+import '../../services/api_service.dart';
 import '../main/main_view.dart';
 
 // ─────────────────────────────────────────────
@@ -206,84 +211,23 @@ class _ExpandableSectionState extends State<_ExpandableSection>
 class PrivacyPolicyView extends StatefulWidget {
   final int currentBottomBarIndex;
 
-  const PrivacyPolicyView({
-    super.key,
-    required this.currentBottomBarIndex,
-  });
+  const PrivacyPolicyView({super.key, required this.currentBottomBarIndex});
 
   @override
   State<PrivacyPolicyView> createState() => _PrivacyPolicyViewState();
 }
 
 class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
+  final ApiService _apiService = ApiService();
   final ScrollController _scrollController = ScrollController();
+  late Future<_PrivacyPolicyPayload> _policyFuture;
   double _scrollProgress = 0.0;
-
-  // ── Static policy sections ────────────────────────────────────────────────
-  // Structured for straightforward future API integration:
-  // replace this list with a mapped API response to populate sections dynamically.
-  static const List<_PolicySection> _sections = [
-    _PolicySection(
-      number: 'SECTION 01',
-      title: 'Information We Collect',
-      icon: Icons.manage_search_rounded,
-      content:
-          'We collect information you provide directly when you register, place an order, or contact us — such as your name, phone number, delivery address, and order history. We may also collect non-personal usage data such as device type and app interaction patterns to improve your experience.',
-    ),
-    _PolicySection(
-      number: 'SECTION 02',
-      title: 'How We Use Your Information',
-      icon: Icons.data_usage_rounded,
-      content:
-          'Your information is used to process orders, arrange delivery, send order status notifications, and provide customer support. We may also use aggregated, anonymised data to analyse trends and improve our services. We do not use personal data for unsolicited marketing without your consent.',
-    ),
-    _PolicySection(
-      number: 'SECTION 03',
-      title: 'Data Sharing & Disclosure',
-      icon: Icons.share_outlined,
-      content:
-          'We do not sell, trade, or rent your personal information to third parties. We may share data with trusted delivery partners solely to fulfil your order, and with service providers who assist us in operating the app, all of whom are bound by confidentiality obligations. We may disclose information when required by law.',
-    ),
-    _PolicySection(
-      number: 'SECTION 04',
-      title: 'Data Retention',
-      icon: Icons.history_rounded,
-      content:
-          'We retain your personal information for as long as your account remains active or as needed to provide services. Order records may be retained for accounting and legal compliance purposes. You may request deletion of your account and associated data at any time by contacting us.',
-    ),
-    _PolicySection(
-      number: 'SECTION 05',
-      title: 'Data Security',
-      icon: Icons.lock_outline_rounded,
-      content:
-          'We implement appropriate technical and organisational measures to protect your personal data against unauthorised access, alteration, disclosure, or destruction. However, no method of electronic transmission is 100% secure, and we cannot guarantee absolute security.',
-    ),
-    _PolicySection(
-      number: 'SECTION 06',
-      title: 'Cookies & Tracking',
-      icon: Icons.cookie_outlined,
-      content:
-          'Our app may use local storage or session tokens to maintain your login state and preferences. We do not use cross-site tracking cookies. Any analytics data collected is anonymised and used solely to improve app performance and usability.',
-    ),
-    _PolicySection(
-      number: 'SECTION 07',
-      title: 'Your Rights',
-      icon: Icons.verified_user_outlined,
-      content:
-          'You have the right to access, correct, or delete the personal information we hold about you. You may also opt out of non-essential communications at any time. To exercise these rights, please contact us through the Help section or reach out directly during our working hours.',
-    ),
-    _PolicySection(
-      number: 'SECTION 08',
-      title: 'Changes to This Policy',
-      icon: Icons.update_rounded,
-      content:
-          'We may update this Privacy Policy periodically to reflect changes in our practices or applicable law. We will notify you of significant changes by updating the "Last updated" date at the top of this page. Continued use of the app after changes are posted constitutes your acceptance of the revised policy.',
-    ),
-  ];
+  int _retryCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _policyFuture = _loadPolicy();
     _scrollController.addListener(_onScroll);
   }
 
@@ -296,12 +240,235 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     final max = _scrollController.position.maxScrollExtent;
     if (max <= 0) return;
     final progress = (_scrollController.offset / max).clamp(0.0, 1.0);
     if ((progress - _scrollProgress).abs() > 0.005) {
       setState(() => _scrollProgress = progress);
     }
+  }
+
+  Future<_PrivacyPolicyPayload> _loadPolicy() async {
+    final results = await Future.wait<dynamic>([
+      _apiService.getPolicyDetail(slug: 'privacy-policy'),
+      _apiService.getPolicies(),
+    ]);
+
+    final detailResponse = results[0] as PolicyDetail;
+    final listResponse = results[1] as ListPolicies;
+
+    final detail = detailResponse.data;
+    if (detailResponse.success != true || detail == null) {
+      throw const ApiServiceException('Unable to load Privacy Policy.');
+    }
+
+    PolicyListItem? listItem;
+    for (final item in listResponse.data ?? const <PolicyListItem>[]) {
+      if ((item.slug ?? '').trim().toLowerCase() == 'privacy-policy') {
+        listItem = item;
+        break;
+      }
+    }
+
+    return _PrivacyPolicyPayload(detail: detail, listItem: listItem);
+  }
+
+  void _retryLoadPolicy() {
+    setState(() {
+      _retryCount += 1;
+      _scrollProgress = 0.0;
+      _policyFuture = _loadPolicy();
+    });
+  }
+
+  List<_PolicySection> _buildSections(PolicyDetailData detail) {
+    final rawContent = _sanitizePolicyText(
+      (detail.content ?? '').trim().isNotEmpty
+          ? detail.content!
+          : (detail.shortDescription ?? ''),
+    );
+
+    final chunks = _chunkText(rawContent, maxChars: 420, maxChunks: 10);
+    if (chunks.isEmpty) {
+      return const <_PolicySection>[
+        _PolicySection(
+          number: 'SECTION 01',
+          title: 'Privacy Policy',
+          content:
+              'No policy details are available right now. Please try again in a moment.',
+          icon: Icons.privacy_tip_outlined,
+        ),
+      ];
+    }
+
+    final icons = <IconData>[
+      Icons.privacy_tip_outlined,
+      Icons.data_usage_rounded,
+      Icons.lock_outline_rounded,
+      Icons.verified_user_outlined,
+      Icons.history_rounded,
+      Icons.share_outlined,
+      Icons.cookie_outlined,
+      Icons.update_rounded,
+      Icons.gavel_outlined,
+      Icons.rule_folder_outlined,
+    ];
+
+    return List<_PolicySection>.generate(chunks.length, (index) {
+      final sectionNumber = (index + 1).toString().padLeft(2, '0');
+      final title = index == 0
+          ? ((detail.title ?? 'Privacy Policy').trim().isEmpty
+                ? 'Privacy Policy'
+                : detail.title!.trim())
+          : 'Policy Details ${index + 1}';
+      return _PolicySection(
+        number: 'SECTION $sectionNumber',
+        title: title,
+        content: chunks[index],
+        icon: icons[index % icons.length],
+      );
+    });
+  }
+
+  List<String> _chunkText(
+    String text, {
+    required int maxChars,
+    required int maxChunks,
+  }) {
+    if (text.trim().isEmpty) return const <String>[];
+
+    final paragraphs = text
+        .split(RegExp(r'\n{2,}'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+
+    if (paragraphs.isEmpty) {
+      return <String>[text.trim()];
+    }
+
+    final result = <String>[];
+    final buffer = StringBuffer();
+
+    for (final paragraph in paragraphs) {
+      final proposed = buffer.isEmpty
+          ? paragraph
+          : '${buffer.toString()}\n\n$paragraph';
+
+      if (proposed.length > maxChars && buffer.isNotEmpty) {
+        result.add(buffer.toString().trim());
+        buffer
+          ..clear()
+          ..write(paragraph);
+      } else {
+        if (!buffer.isEmpty) {
+          buffer.write('\n\n');
+        }
+        buffer.write(paragraph);
+      }
+    }
+
+    if (!buffer.isEmpty) {
+      result.add(buffer.toString().trim());
+    }
+
+    if (result.length <= maxChunks) {
+      return result;
+    }
+
+    final head = result.sublist(0, maxChunks - 1);
+    final tail = result.sublist(maxChunks - 1).join('\n\n');
+    return <String>[...head, tail];
+  }
+
+  String _sanitizePolicyText(String raw) {
+    if (raw.trim().isEmpty) return '';
+
+    var text = raw;
+
+    text = text.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    text = text.replaceAll(
+      RegExp(
+        r'</(p|div|h1|h2|h3|h4|h5|h6|li|ul|ol|section|article|tr)>',
+        caseSensitive: false,
+      ),
+      '\n\n',
+    );
+    text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
+
+    const entities = <String, String>{
+      '&nbsp;': ' ',
+      '&amp;': '&',
+      '&quot;': '"',
+      '&#39;': "'",
+      '&lt;': '<',
+      '&gt;': '>',
+    };
+
+    for (final entry in entities.entries) {
+      text = text.replaceAll(entry.key, entry.value);
+    }
+
+    text = text.replaceAll(RegExp(r'\r\n?'), '\n');
+    text = text.replaceAll(RegExp(r'[ \t\x0B\f]+'), ' ');
+    text = text.replaceAll(RegExp(r'\n[ ]+'), '\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+
+    return text.trim();
+  }
+
+  String _resolveHeaderDescription(_PrivacyPolicyPayload payload) {
+    final detailDescription = (payload.detail.shortDescription ?? '').trim();
+    if (detailDescription.isNotEmpty) {
+      return _sanitizePolicyText(detailDescription);
+    }
+
+    final listDescription = (payload.listItem?.shortDescription ?? '').trim();
+    if (listDescription.isNotEmpty) {
+      return _sanitizePolicyText(listDescription);
+    }
+
+    return 'Your privacy matters to us. This policy explains how Mandal Variety Store collects, uses, and protects your personal information.';
+  }
+
+  String? _resolveLastUpdated(_PrivacyPolicyPayload payload) {
+    final fromDetail = _formatApiDate(payload.detail.updatedAt);
+    if (fromDetail != null) return fromDetail;
+    return _formatApiDate(payload.detail.createdAt);
+  }
+
+  String? _formatApiDate(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return null;
+
+    final datePart = raw.split(' ').first;
+    final pieces = datePart.split('-');
+    if (pieces.length != 3) return null;
+
+    final year = int.tryParse(pieces[0]);
+    final month = int.tryParse(pieces[1]);
+    final day = int.tryParse(pieces[2]);
+
+    if (year == null || month == null || day == null) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const monthNames = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return '${monthNames[month - 1]} $day, $year';
   }
 
   void _onBottomBarTap(BuildContext context, int index) {
@@ -322,7 +489,8 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.primaryColor;
     final onSurface = theme.colorScheme.onSurface;
-    final bottomContentSpacer = 112.0 + MediaQuery.viewPaddingOf(context).bottom;
+    final bottomContentSpacer =
+        112.0 + MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
       extendBody: true,
@@ -392,39 +560,86 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
         ],
       ),
       // ── Body ───────────────────────────────────────────────
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Hero header ─────────────────────────────────
-            _HeroHeader(isDark: isDark, primary: primary, onSurface: onSurface),
-            // ── Sections list ────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (int i = 0; i < _sections.length; i++) ...[
-                    _ExpandableSection(
-                      section: _sections[i],
-                      initiallyExpanded: i == 0,
-                    ),
-                    if (i < _sections.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              ),
+      body: FutureBuilder<_PrivacyPolicyPayload>(
+        future: _policyFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _LoadingState(primary: primary, onSurface: onSurface);
+          }
+
+          if (snapshot.hasError) {
+            if (isNetworkError(snapshot.error)) {
+              return NoInternetPage(
+                retryCount: _retryCount,
+                onRetry: _retryLoadPolicy,
+              );
+            }
+            return _ErrorState(
+              message: snapshot.error.toString(),
+              onRetry: _retryLoadPolicy,
+            );
+          }
+
+          final payload = snapshot.data;
+          if (payload == null) {
+            return _ErrorState(
+              message: 'No privacy policy data was returned.',
+              onRetry: _retryLoadPolicy,
+            );
+          }
+
+          final sections = _buildSections(payload.detail);
+          final description = _resolveHeaderDescription(payload);
+          final lastUpdated = _resolveLastUpdated(payload);
+
+          return SingleChildScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Hero header ─────────────────────────────────
+                _HeroHeader(
+                  isDark: isDark,
+                  primary: primary,
+                  onSurface: onSurface,
+                  description: description,
+                  lastUpdatedLabel: lastUpdated,
+                ),
+                // ── Sections list ────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < sections.length; i++) ...[
+                        _ExpandableSection(
+                          section: sections[i],
+                          initiallyExpanded: i == 0,
+                        ),
+                        if (i < sections.length - 1) const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
+                // ── Footer acknowledgment ─────────────────────
+                _FooterAcknowledgment(onSurface: onSurface),
+                // Safe bottom padding for bottom bar
+                SizedBox(height: bottomContentSpacer),
+              ],
             ),
-            // ── Footer acknowledgment ─────────────────────
-            _FooterAcknowledgment(onSurface: onSurface),
-            // Safe bottom padding for bottom bar
-            SizedBox(height: bottomContentSpacer),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
+}
+
+class _PrivacyPolicyPayload {
+  final PolicyDetailData detail;
+  final PolicyListItem? listItem;
+
+  const _PrivacyPolicyPayload({required this.detail, required this.listItem});
 }
 
 // ─────────────────────────────────────────────
@@ -434,11 +649,15 @@ class _HeroHeader extends StatelessWidget {
   final bool isDark;
   final Color primary;
   final Color onSurface;
+  final String description;
+  final String? lastUpdatedLabel;
 
   const _HeroHeader({
     required this.isDark,
     required this.primary,
     required this.onSurface,
+    required this.description,
+    required this.lastUpdatedLabel,
   });
 
   @override
@@ -464,7 +683,11 @@ class _HeroHeader extends StatelessWidget {
                     width: 1.5,
                   ),
                 ),
-                child: Icon(Icons.privacy_tip_outlined, size: 28, color: primary),
+                child: Icon(
+                  Icons.privacy_tip_outlined,
+                  size: 28,
+                  color: primary,
+                ),
               ),
               const SizedBox(width: 16),
               // Description + last-updated badge
@@ -473,7 +696,7 @@ class _HeroHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your privacy matters to us. This policy explains how Mandal Variety Store collects, uses, and protects your personal information.',
+                      description,
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: onSurface.withValues(alpha: 0.62),
                         height: 1.6,
@@ -500,7 +723,7 @@ class _HeroHeader extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'Last updated: February 2026',
+                            'Last updated: ${lastUpdatedLabel ?? 'Recently'}',
                             style: AppTextStyles.caption.copyWith(
                               color: primary.withValues(alpha: 0.85),
                               fontWeight: FontWeight.w600,
@@ -542,6 +765,93 @@ class _FooterAcknowledgment extends StatelessWidget {
           color: onSurface.withValues(alpha: 0.35),
           height: 1.6,
           letterSpacing: 0.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  final Color primary;
+  final Color onSurface;
+
+  const _LoadingState({required this.primary, required this.onSurface});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.6,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                primary.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Loading Privacy Policy...',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: onSurface.withValues(alpha: 0.62),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final primary = Theme.of(context).primaryColor;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 26),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 28,
+              color: onSurface.withValues(alpha: 0.62),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: onSurface.withValues(alpha: 0.72),
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primary,
+                side: BorderSide(color: primary.withValues(alpha: 0.45)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
