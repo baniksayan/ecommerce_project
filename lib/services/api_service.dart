@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -536,7 +535,7 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException catch (e) {
+    } on http.ClientException catch (e) {
       final details = e.message.toLowerCase();
       if (details.contains('failed host lookup')) {
         throw const ApiServiceException(
@@ -602,7 +601,7 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException catch (e) {
+    } on http.ClientException catch (e) {
       final details = e.message.toLowerCase();
       if (details.contains('failed host lookup')) {
         throw const ApiServiceException(
@@ -667,7 +666,7 @@ class ApiService {
       return decoded;
     } on TimeoutException {
       throw const ApiServiceException('Request timed out. Please retry.');
-    } on SocketException catch (e) {
+    } on http.ClientException catch (e) {
       final details = e.message.toLowerCase();
       if (details.contains('failed host lookup')) {
         throw const ApiServiceException(

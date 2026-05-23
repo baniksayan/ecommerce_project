@@ -1,13 +1,15 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:async';
+
+import 'package:http/http.dart' as http;
 
 import '../config/rest_api_config.dart';
 import 'api_exception.dart';
 
 class ApiClient {
-  ApiClient({HttpClient? httpClient}) : _httpClient = httpClient ?? HttpClient();
+  ApiClient({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
 
-  final HttpClient _httpClient;
+  final http.Client _httpClient;
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -50,24 +52,23 @@ class ApiClient {
     );
 
     try {
-      final request = await _httpClient
-          .openUrl(method, uri)
-          .timeout(RestApiConfig.requestTimeout);
-
       final mergedHeaders = <String, String>{
-        HttpHeaders.acceptHeader: 'application/json',
-        HttpHeaders.contentTypeHeader: 'application/json',
+        'accept': 'application/json',
+        'content-type': 'application/json',
         ...?headers,
       };
 
-      mergedHeaders.forEach(request.headers.set);
+      final request = http.Request(method, uri)..headers.addAll(mergedHeaders);
 
       if (body != null) {
-        request.write(jsonEncode(body));
+        request.body = jsonEncode(body);
       }
 
-      final response = await request.close().timeout(RestApiConfig.requestTimeout);
-      final responseBody = await response.transform(utf8.decoder).join();
+      final streamedResponse = await _httpClient
+          .send(request)
+          .timeout(RestApiConfig.requestTimeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseBody = response.body;
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -91,10 +92,10 @@ class ApiClient {
         statusCode: response.statusCode,
         responseBody: responseBody,
       );
-    } on SocketException catch (error) {
+    } on http.ClientException catch (error) {
       throw ApiException(message: 'No internet connection: $error');
-    } on HandshakeException catch (error) {
-      throw ApiException(message: 'SSL error: $error');
+    } on TimeoutException {
+      throw ApiException(message: 'Request timed out');
     } on FormatException catch (error) {
       throw ApiException(message: 'Invalid JSON response: $error');
     } on ApiException {

@@ -1,4 +1,5 @@
 import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/cart/cart_coordinator.dart';
@@ -44,6 +45,8 @@ class _EnchantedForestAppState extends State<EnchantedForestApp>
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (kIsWeb || !mounted) return;
+
       await AppPermissionCoordinator.instance.requestPermissionsOnFirstLaunch(
         context,
       );
@@ -60,6 +63,7 @@ class _EnchantedForestAppState extends State<EnchantedForestApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (kIsWeb) return;
       if (!mounted) return;
       AddressLocationCoordinator.instance.syncOnAppOpenWithPrompts(context);
     }

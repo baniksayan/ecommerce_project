@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -27,6 +26,13 @@ class AppPermissionCoordinator {
     final alreadyRequested =
         (_box!.get(_firstLaunchPromptCompleted) as bool?) ?? false;
     if (alreadyRequested) return;
+
+    // Browser permissions are requested ad-hoc by feature use;
+    // avoid unsupported/global startup prompts on web.
+    if (kIsWeb) {
+      await _box!.put(_firstLaunchPromptCompleted, true);
+      return;
+    }
 
     try {
       final statuses = await _requestAllConfiguredPermissions();
@@ -82,7 +88,7 @@ class AppPermissionCoordinator {
     result['microphone'] = await Permission.microphone.request();
     result['photos_media'] = await Permission.photos.request();
 
-    if (!Platform.isIOS) {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
       result['phone'] = await Permission.phone.request();
     }
 

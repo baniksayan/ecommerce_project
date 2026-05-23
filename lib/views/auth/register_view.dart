@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 
+import '../../core/utils/platform_helper.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/responsive/media_query_helper.dart';
@@ -307,7 +307,7 @@ class _RegisterViewState extends State<RegisterView> {
         leading: widget.fromDrawer
             ? IconButton(
                 icon: Icon(
-                  Platform.isIOS
+                  PlatformHelper.isIOS
                       ? Icons.arrow_back_ios_new_rounded
                       : Icons.arrow_back_rounded,
                 ),
@@ -316,7 +316,7 @@ class _RegisterViewState extends State<RegisterView> {
               )
             : IconButton(
                 icon: Icon(
-                  Platform.isIOS
+                  PlatformHelper.isIOS
                       ? Icons.arrow_back_ios_new_rounded
                       : Icons.arrow_back_rounded,
                 ),
