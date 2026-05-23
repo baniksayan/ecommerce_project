@@ -15,6 +15,7 @@ import '../models/categories_model.dart';
 import '../models/manage_policies_model.dart';
 import '../models/policy_detail_model.dart';
 import '../models/policy_list_model.dart';
+import '../models/profile_model.dart';
 import '../models/product_details_model.dart';
 import '../models/product_list_model.dart';
 import '../models/wishlist_add_model.dart';
@@ -90,6 +91,30 @@ class ApiService {
       withAuth: withAuth,
     );
     return ManagePolicies.fromJson(jsonMap);
+  }
+
+  Future<Profile> getProfile({int? userId}) async {
+    final resolvedUserId = _resolveUserId(userId);
+    if (resolvedUserId == null) {
+      throw const ApiServiceException('Please login first.');
+    }
+
+    try {
+      final jsonMap = await _get(
+        'auth/profile.php',
+        queryParameters: <String, String>{'user_id': resolvedUserId.toString()},
+        withAuth: true,
+      );
+      return Profile.fromJson(jsonMap);
+    } on ApiServiceException catch (e) {
+      // Some deployments resolve profile from token only and ignore user_id.
+      if (e.statusCode != 404) {
+        rethrow;
+      }
+
+      final fallbackJson = await _get('auth/profile.php', withAuth: true);
+      return Profile.fromJson(fallbackJson);
+    }
   }
 
   Future<Cartlist> getCartList({int? userId}) async {
@@ -542,9 +567,11 @@ class ApiService {
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final serverMessage = _extractServerErrorMessage(response.body);
         final serverDebug = _extractServerDebug(response.body);
         throw ApiServiceException(
-          'Server error (${response.statusCode}). Please try again.',
+          serverMessage ??
+              'Server error (${response.statusCode}). Please try again.',
           statusCode: response.statusCode,
           rawResponseBody: response.body,
           debugData: serverDebug,

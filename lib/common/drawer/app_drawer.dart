@@ -2,6 +2,7 @@ import 'package:mandal_variety/views/age_restriction_policy/age_restriction_poli
 import 'package:mandal_variety/views/addresses/my_addresses_view.dart';
 import 'package:mandal_variety/views/cancellation_policy/cancellation_policy_view.dart';
 import 'package:mandal_variety/views/privacy_policy/privacy_policy_view.dart';
+import 'package:mandal_variety/views/profile/profile_view.dart';
 import 'package:mandal_variety/views/terms_and_conditions/terms_and_conditions_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,12 +11,12 @@ import '../../core/auth/auth_coordinator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/models/product_model.dart';
+import '../../services/api_service.dart';
 import '../../views/auth/email_login_view.dart';
 import '../../views/onboarding/onboarding_view.dart';
 import '../../views/product_listing/product_listing_view.dart';
 import '../../views/contact_us/contact_us_view.dart';
 import '../dialogs/app_dialog.dart';
-import '../image_viewer/zoomable_image_viewer.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
 
@@ -49,6 +50,8 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+
   bool _isFaqsExpanded = false;
   late AnimationController _faqsController;
   late Animation<double> _faqsExpandAnim;
@@ -60,6 +63,8 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   late Animation<double> _helpRotateAnim;
 
   String _appVersion = '';
+  String? _drawerName;
+  String? _drawerProfilePicUrl;
 
   static const String _storeName = 'Mandal Variety';
 
@@ -137,6 +142,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _loadDrawerProfile();
     PackageInfo.fromPlatform().then((info) {
       if (mounted) setState(() => _appVersion = info.version);
     });
@@ -176,12 +182,86 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     HapticFeedback.selectionClick();
   }
 
+  Future<void> _loadDrawerProfile() async {
+    if (_isGuest) {
+      if (!mounted) return;
+      setState(() {
+        _drawerName = null;
+        _drawerProfilePicUrl = null;
+      });
+      return;
+    }
+
+    final sessionName = AuthCoordinator.instance.currentUserName;
+    final fallbackName = widget.userName;
+    if (mounted) {
+      setState(() {
+        _drawerName = (sessionName ?? fallbackName ?? '').trim().isEmpty
+            ? null
+            : (sessionName ?? fallbackName)!.trim();
+      });
+    }
+
+    try {
+      final userId = AuthCoordinator.instance.currentUserId;
+      final profile = await _apiService.getProfile(userId: userId);
+      final data = profile.data;
+      if (!mounted || profile.success != true || data == null) return;
+
+      final resolvedName = (data.name ?? '').trim();
+      final rawImage = (data.profileImage ?? '').trim();
+      final resolvedImage = rawImage.isEmpty
+          ? null
+          : _apiService.resolveImageUrl(rawImage);
+
+      await AuthCoordinator.instance.setUserSession(
+        userId: data.id,
+        name: resolvedName.isEmpty ? null : resolvedName,
+        email: data.email,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (resolvedName.isNotEmpty) {
+          _drawerName = resolvedName;
+        }
+        _drawerProfilePicUrl = resolvedImage;
+      });
+    } catch (_) {
+      // Keep session fallback values if live profile load fails.
+    }
+  }
+
+  Future<void> _openProfileOrLogin(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    Navigator.pop(context);
+
+    if (_isGuest) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const EmailLoginView(fromDrawer: true),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileView(
+          currentBottomBarIndex: widget.currentBottomBarIndex ?? 0,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
     HapticFeedback.mediumImpact();
     final confirmed = await AppDialog.showConfirm(
       context: context,
       title: 'Log out',
-      message: 'Are you sure you want to log out? You will need to verify your email again to access your account.',
+      message:
+          'Are you sure you want to log out? You will need to verify your email again to access your account.',
       confirmText: 'Log out',
       cancelText: 'Cancel',
       barrierDismissible: true,
@@ -198,11 +278,15 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   bool get _isGuest => !AuthCoordinator.instance.isLoggedIn;
 
   Widget _buildProfileAvatar(BuildContext context, {double radius = 30}) {
+    final sessionPic = _drawerProfilePicUrl;
+    final widgetPic = widget.profilePicUrl;
     final String? effectivePicUrl = _isGuest
-      ? null
-      : (widget.profilePicUrl != null && widget.profilePicUrl!.isNotEmpty
-          ? widget.profilePicUrl!
-          : null);
+        ? null
+        : (sessionPic != null && sessionPic.trim().isNotEmpty
+              ? sessionPic
+              : (widgetPic != null && widgetPic.trim().isNotEmpty
+                    ? widgetPic
+                    : null));
 
     final hasImage = effectivePicUrl != null;
     final avatar = CircleAvatar(
@@ -214,20 +298,6 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
           : Icon(Icons.person, size: radius * 1.2, color: AppColors.dustyOlive),
     );
 
-    if (hasImage) {
-      return GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ZoomableImageViewer.show(
-            context,
-            imageProvider: _resolveImageProvider(effectivePicUrl),
-            heroTag: 'profile_pic_zoom',
-          );
-        },
-        child: Hero(tag: 'profile_pic_zoom', child: avatar),
-      );
-    }
-
     return avatar;
   }
 
@@ -236,13 +306,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
 
     if (_isGuest) {
       return InkWell(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.pop(context);
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const EmailLoginView(fromDrawer: true)),
-          );
-        },
+        onTap: () => _openProfileOrLogin(context),
         child: Container(
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 24,
@@ -270,14 +334,14 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Hello, Guest',
+                      'Hi, Guest!',
                       style: AppTextStyles.heading3.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Please login to access your account',
+                      'Login to view your profile',
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: theme.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -298,47 +362,52 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     }
 
     // ── Logged-in header ────────────────────────────────────────────────────
-    final String displayUserName = widget.userName ?? 'User';
+    final sessionName = AuthCoordinator.instance.currentUserName;
+    final fallbackName = widget.userName;
+    final displayUserName =
+        (_drawerName ?? sessionName ?? fallbackName ?? '').trim().isEmpty
+        ? 'User'
+        : (_drawerName ?? sessionName ?? fallbackName)!.trim();
 
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 24,
-        bottom: 24,
-        left: 20,
-        right: 20,
-      ),
-      color: theme.scaffoldBackgroundColor,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _buildProfileAvatar(context),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Hi, $displayUserName!',
-                  style: AppTextStyles.heading3.copyWith(
-                    fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: () => _openProfileOrLogin(context),
+      child: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 24,
+          bottom: 24,
+          left: 20,
+          right: 20,
+        ),
+        color: theme.scaffoldBackgroundColor,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildProfileAvatar(context),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Hi, $displayUserName!',
+                    style: AppTextStyles.heading3.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                GestureDetector(
-                  onTap: () => _handleTap(context, 'View Profile Clicked'),
-                  child: Text(
+                  const SizedBox(height: 4),
+                  Text(
                     'View or edit your profile',
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: theme.primaryColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -825,7 +894,9 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
               child: Center(
                 child: Text(
-                  _appVersion.isEmpty ? 'App Version will be shown soon' : 'App Version $_appVersion',
+                  _appVersion.isEmpty
+                      ? 'App Version will be shown soon'
+                      : 'App Version $_appVersion',
                   style: AppTextStyles.caption.copyWith(
                     color: theme.disabledColor,
                   ),
