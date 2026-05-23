@@ -8,6 +8,7 @@ import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/buttons/cart_icon_button.dart';
 import '../../common/searchbar/app_search_bar.dart';
+import '../../common/pages/no_internet_page.dart';
 import '../../core/cart/cart_coordinator.dart';
 import '../../core/cart/cart_pricing.dart';
 import '../../core/theme/app_colors.dart';
@@ -62,6 +63,7 @@ class _ProductListingViewState extends State<ProductListingView> {
   // Switch to API loading duration once live network calls are in place.
   bool _skeletonVisible = true;
   Timer? _skeletonTimer;
+  int _retryCount = 0;
 
   bool get _canPop => ModalRoute.of(context)?.canPop ?? false;
 
@@ -359,23 +361,33 @@ class _ProductListingViewState extends State<ProductListingView> {
                     ),
                   ),
 
-                  if (_vm.isLoading || _skeletonVisible)
+                  if ((_vm.isLoading || _skeletonVisible) && !_vm.hasError)
                     const ProductListingSkeletonSliver()
                   else if (_vm.hasError)
                     SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            _vm.errorMessage ?? 'Something went wrong.',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: onSurface.withValues(alpha: 0.7),
+                      child: _vm.isNetworkError
+                          ? NoInternetPage(
+                              retryCount: _retryCount,
+                              onRetry: () {
+                                setState(() => _retryCount++);
+                                _vm.load();
+                              },
+                            )
+                          : Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
+                                child: Text(
+                                  _vm.errorMessage ?? 'Something went wrong.',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: onSurface.withValues(alpha: 0.7),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
                     )
                   else if (_vm.filteredProducts.isEmpty)
                     SliverFillRemaining(

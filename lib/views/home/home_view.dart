@@ -3,6 +3,8 @@ import 'home_widgets.dart';
 import '../../common/drawer/app_drawer.dart';
 import '../../common/appbar/primary_sliver_app_bar.dart';
 import '../../common/cards/product_grid_card.dart';
+import '../../common/pages/no_internet_page.dart';
+import '../../core/network/network_error_utils.dart';
 import '../../models/categories_model.dart';
 import '../../models/product_list_model.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
@@ -64,6 +66,7 @@ class _HomeViewState extends State<HomeView> {
 
   bool _isLoadingDynamic = false;
   String? _dynamicError;
+  int _retryCount = 0;
   List<CategoryItemModel> _apiCategories = const <CategoryItemModel>[];
   List<ProductModel> _apiProducts = const <ProductModel>[];
   String? _selectedCategoryName;
@@ -118,6 +121,11 @@ class _HomeViewState extends State<HomeView> {
         });
       }
     }
+  }
+
+  Future<void> _retryHomeLoad() async {
+    setState(() => _retryCount++);
+    await _loadDynamicHomeData();
   }
 
   ProductModel _mapApiProduct(ProductItemModel item, int index) {
@@ -255,6 +263,12 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasInitialNetworkFailure =
+        !_isLoadingDynamic &&
+        _apiCategories.isEmpty &&
+        _apiProducts.isEmpty &&
+        isNetworkError(_dynamicError);
+
     return Scaffold(
       extendBody: true,
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -287,6 +301,17 @@ class _HomeViewState extends State<HomeView> {
             SliverToBoxAdapter(
               child: Column(
                 children: [
+                  if (hasInitialNetworkFailure)
+                    SizedBox(
+                      height: MediaQuery.sizeOf(context).height * 0.75,
+                      child: NoInternetPage(
+                        retryCount: _retryCount,
+                        onRetry: () {
+                          _retryHomeLoad();
+                        },
+                      ),
+                    )
+                  else ...[
                   const SizedBox(height: 16),
                   // Promo Carousel
                   EcommercePromoCarousel(
@@ -359,12 +384,14 @@ class _HomeViewState extends State<HomeView> {
                   else
                     EcommerceCategoryRow(categories: _buildCategoryItems()),
                   const SizedBox(height: 16),
+                  ],
                 ],
               ),
             ),
 
             // Infinite Section Builder
-            SliverList.builder(
+            if (!hasInitialNetworkFailure)
+              SliverList.builder(
               itemBuilder: (context, index) {
                 if (index % 2 == 0) {
                   // Return a product list section

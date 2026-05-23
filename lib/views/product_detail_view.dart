@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../common/pages/no_internet_page.dart';
+import '../core/network/network_error_utils.dart';
 import '../models/product_details_model.dart';
 import '../services/api_service.dart';
 
@@ -17,6 +19,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   late Future<Productdetails> _detailsFuture;
 
   int _activeIndex = 0;
+  int _retryCount = 0;
 
   @override
   void initState() {
@@ -28,6 +31,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final future = _apiService.getProductDetails(widget.productId);
     setState(() => _detailsFuture = future);
     await future;
+  }
+
+  Future<void> _retryDetailsLoad() async {
+    setState(() => _retryCount++);
+    await _refresh();
   }
 
   @override
@@ -42,6 +50,14 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           }
 
           if (snapshot.hasError) {
+            if (isNetworkError(snapshot.error)) {
+              return NoInternetPage(
+                retryCount: _retryCount,
+                onRetry: () {
+                  _retryDetailsLoad();
+                },
+              );
+            }
             return _DetailErrorState(
               message: snapshot.error.toString(),
               onRetry: _refresh,

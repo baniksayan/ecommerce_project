@@ -7,6 +7,7 @@ import '../../common/bottombar/common_bottom_bar.dart';
 import '../../common/cards/app_card.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/dialogs/app_dialog.dart';
+import '../../common/pages/no_internet_page.dart';
 import '../../core/auth/auth_guard.dart';
 import '../../core/cart/cart_coordinator.dart';
 import '../../core/cart/cart_pricing.dart';
@@ -58,6 +59,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
 
   AddressCache? _addressCache;
   bool _addressLoading = true;
+  int _retryCount = 0;
 
   final List<ProductModel> _recommendedItems = const [
     ProductModel(
@@ -154,6 +156,11 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
     if (saved == true) {
       await _loadAddressCache();
     }
+  }
+
+  void _retryLoad() {
+    setState(() => _retryCount++);
+    _vm.init();
   }
 
   String _addressTitle(AddressCache cache) {
@@ -333,18 +340,23 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
             child: _vm.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _vm.hasError
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Center(
-                      child: Text(
-                        _vm.errorMessage ?? 'Something went wrong.',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: onSurface.withValues(alpha: 0.7),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
+                ? _vm.isNetworkError
+                      ? NoInternetPage(
+                          retryCount: _retryCount,
+                          onRetry: _retryLoad,
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          child: Center(
+                            child: Text(
+                              _vm.errorMessage ?? 'Something went wrong.',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: onSurface.withValues(alpha: 0.7),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
                 : _vm.isEmpty
                 ? ListView(
                     physics: const BouncingScrollPhysics(

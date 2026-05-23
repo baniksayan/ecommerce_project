@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../core/network/network_error_utils.dart';
 import '../core/cart/cart_coordinator.dart';
 import '../core/cart/cart_pricing.dart';
 import '../data/models/cart_item_model.dart';
@@ -25,7 +26,11 @@ class CartViewModel extends BaseViewModel {
         notifyListeners();
       });
     } catch (e) {
-      setError('Failed to load cart.');
+      if (isNetworkError(e)) {
+        setNetworkError();
+      } else {
+        setError('Failed to load cart.');
+      }
     } finally {
       setLoading(false);
     }

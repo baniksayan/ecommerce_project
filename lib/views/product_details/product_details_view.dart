@@ -12,6 +12,7 @@ import '../../common/cards/app_card.dart';
 import '../../common/cards/product_grid_card.dart';
 import '../../common/image_viewer/zoomable_image_viewer.dart';
 import '../../common/snackbars/app_snackbar.dart';
+import '../../common/pages/no_internet_page.dart';
 import '../../core/auth/auth_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -99,6 +100,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
   // Switch to API loading duration once live network calls are in place.
   bool _skeletonVisible = true;
   Timer? _skeletonTimer;
+  int _retryCount = 0;
 
   final GlobalKey _reviewsKey = GlobalKey();
 
@@ -327,6 +329,15 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     }
 
     if (_vm.hasError) {
+      if (_vm.isNetworkError) {
+        return NoInternetPage(
+          retryCount: _retryCount,
+          onRetry: () {
+            setState(() => _retryCount++);
+            _vm.init();
+          },
+        );
+      }
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),

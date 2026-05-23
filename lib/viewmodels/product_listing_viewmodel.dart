@@ -1,4 +1,5 @@
 import '../data/models/product_model.dart';
+import '../core/network/network_error_utils.dart';
 import '../models/product_list_model.dart';
 import '../services/api_service.dart';
 import 'base_viewmodel.dart';
@@ -146,8 +147,12 @@ class ProductListingViewModel extends BaseViewModel {
       _products = mapped;
 
       _hasMore = false;
-    } catch (_) {
-      setError('Failed to load products.');
+    } catch (e) {
+      if (isNetworkError(e)) {
+        setNetworkError();
+      } else {
+        setError('Failed to load products.');
+      }
     } finally {
       setLoading(false);
     }

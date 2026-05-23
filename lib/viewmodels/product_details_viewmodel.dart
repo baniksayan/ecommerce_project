@@ -4,6 +4,7 @@ import '../data/models/cart_item_model.dart';
 import '../data/models/product_model.dart';
 import '../data/models/wishlist_item_model.dart';
 import '../core/cart/cart_coordinator.dart';
+import '../core/network/network_error_utils.dart';
 import '../models/product_list_model.dart';
 import '../data/repositories/cart_repository.dart';
 import '../data/repositories/wishlist_repository.dart';
@@ -117,8 +118,12 @@ class ProductDetailsViewModel extends BaseViewModel {
       _categorySearchProducts = const <ProductModel>[];
 
       await _hydrateFromApi();
-    } catch (_) {
-      setError('Failed to load product.');
+    } catch (e) {
+      if (isNetworkError(e)) {
+        setNetworkError();
+      } else {
+        setError('Failed to load product.');
+      }
     } finally {
       setLoading(false);
       notifyListeners();
@@ -198,7 +203,8 @@ class ProductDetailsViewModel extends BaseViewModel {
             .take(6)
             .toList(growable: false);
       }
-    } catch (_) {
+    } catch (e) {
+      if (isNetworkError(e)) rethrow;
       // Keep static fallback data if API fails.
     }
   }

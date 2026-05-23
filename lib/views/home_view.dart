@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../common/appbar/primary_sliver_app_bar.dart';
+import '../common/pages/no_internet_page.dart';
+import '../core/network/network_error_utils.dart';
 import '../models/categories_model.dart';
 import '../models/product_list_model.dart';
 import '../services/api_service.dart';
@@ -20,6 +22,7 @@ class _HomeViewState extends State<HomeView> {
 
   late Future<_HomePayload> _homeFuture;
   String _selectedCategory = 'All';
+  int _retryCount = 0;
 
   @override
   void initState() {
@@ -49,6 +52,11 @@ class _HomeViewState extends State<HomeView> {
     final future = _loadHomeData();
     setState(() => _homeFuture = future);
     await future;
+  }
+
+  Future<void> _retryHomeLoad() async {
+    setState(() => _retryCount++);
+    await _refresh();
   }
 
   List<ProductItemModel> _filteredProducts(List<ProductItemModel> products) {
@@ -128,6 +136,17 @@ class _HomeViewState extends State<HomeView> {
     }
 
     if (snapshot.hasError) {
+      if (isNetworkError(snapshot.error)) {
+        return SliverFillRemaining(
+          hasScrollBody: false,
+          child: NoInternetPage(
+            retryCount: _retryCount,
+            onRetry: () {
+              _retryHomeLoad();
+            },
+          ),
+        );
+      }
       return SliverFillRemaining(
         hasScrollBody: false,
         child: _ErrorState(
