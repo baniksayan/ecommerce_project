@@ -10,6 +10,7 @@ import '../../core/responsive/media_query_helper.dart';
 import '../../common/buttons/app_button.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../views/main/main_view.dart';
+import 'email_login_view.dart';
 
 // ============================================================================
 // OTP VERIFICATION VIEW
@@ -19,8 +20,13 @@ import '../../views/main/main_view.dart';
 
 class OtpVerificationView extends StatefulWidget {
   final String email;
+  final bool isRegister;
 
-  const OtpVerificationView({super.key, required this.email});
+  const OtpVerificationView({
+    super.key,
+    required this.email,
+    this.isRegister = false,
+  });
 
   @override
   State<OtpVerificationView> createState() => _OtpVerificationViewState();
@@ -112,7 +118,9 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
       _errorMessage = null;
     });
 
-    final result = await _vm.verifyOtp(email: widget.email, code: code);
+    final result = widget.isRegister
+        ? await _vm.verifyRegister(email: widget.email, code: code)
+        : await _vm.verifyOtp(email: widget.email, code: code);
 
     if (!mounted) return;
 
@@ -129,23 +137,28 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
       if (!mounted) return;
 
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainView()),
+        MaterialPageRoute(
+          builder: (_) => widget.isRegister
+              ? const EmailLoginView()
+              : const MainView(),
+        ),
       );
     } else {
+      final errorMsg = result.message ?? 'Invalid code. Please try again.';
       setState(() {
         _isVerifying = false;
-        _errorMessage = result.message ?? 'Invalid code. Please try again.';
-        _otpController.clear();
+        _errorMessage = errorMsg;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_errorMessage!),
+          content: Text(errorMsg),
           backgroundColor: AppColors.lightError,
           behavior: SnackBarBehavior.floating,
         ),
       );
 
+      _otpController.clear();
       _otpFocusNode.requestFocus();
     }
   }

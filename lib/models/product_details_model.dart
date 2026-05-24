@@ -32,11 +32,12 @@ class ProductDetailData {
   int? stockQuantity;
   int? categoryId;
   List<String>? images;
-  dynamic weight;
+  String? weight;
   int? isActive;
   String? createdAt;
   String? updatedAt;
   int? stock;
+  String? attributes;
   String? categoryName;
 
   ProductDetailData({
@@ -55,40 +56,44 @@ class ProductDetailData {
     this.createdAt,
     this.updatedAt,
     this.stock,
+    this.attributes,
     this.categoryName,
   });
 
   ProductDetailData.fromJson(Map<String, dynamic> json) {
-    final rawId = json['id'] ?? json['product_id'] ?? json['productId'];
-    id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
-    name = json['name'];
-    slug = json['slug'];
-    description = json['description'];
-    price = json['price'];
-    discountPrice = json['discount_price'];
-    sku = json['sku'];
-    stockQuantity = json['stock_quantity'];
-    categoryId = json['category_id'];
+    id = _asInt(json['id'] ?? json['product_id'] ?? json['productId']);
+    name = _asString(json['name']);
+    slug = _asString(json['slug']);
+    description = _asString(json['description']);
+    price = _asString(json['price']);
+    discountPrice = _asString(json['discount_price']);
+    sku = _asString(json['sku']);
+    stockQuantity = _asInt(json['stock_quantity']);
+    categoryId = _asInt(json['category_id']);
 
     final rawImages = json['images'];
     if (rawImages is List) {
-      images = rawImages.map((e) => e.toString()).toList();
+      images = rawImages
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
     } else if (rawImages is String && rawImages.trim().isNotEmpty) {
       images = rawImages
           .split(',')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
-          .toList();
+          .toList(growable: false);
     } else {
       images = <String>[];
     }
 
-    weight = json['weight'];
-    isActive = json['is_active'];
-    createdAt = json['created_at'];
-    updatedAt = json['updated_at'];
-    stock = json['stock'];
-    categoryName = json['category_name'];
+    weight = _asString(json['weight']);
+    isActive = _asInt(json['is_active']);
+    createdAt = _asString(json['created_at']);
+    updatedAt = _asString(json['updated_at']);
+    stock = _asInt(json['stock']);
+    attributes = _asString(json['attributes']);
+    categoryName = _asString(json['category_name']);
   }
 
   Map<String, dynamic> toJson() {
@@ -108,7 +113,21 @@ class ProductDetailData {
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     data['stock'] = stock;
+    data['attributes'] = attributes;
     data['category_name'] = categoryName;
     return data;
   }
+}
+
+int? _asInt(Object? value) {
+  if (value is int) return value;
+  return int.tryParse(value?.toString() ?? '');
+}
+
+String? _asString(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  if (text.isEmpty || text.toLowerCase() == 'null') {
+    return null;
+  }
+  return text;
 }

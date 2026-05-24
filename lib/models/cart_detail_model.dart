@@ -5,17 +5,40 @@ class Cartdetail {
   Cartdetail({this.success, this.data});
 
   Cartdetail.fromJson(Map<String, dynamic> json) {
-    success = json['success'];
-    data = json['data'] != null ? CartDetailData.fromJson(json['data']) : null;
+    success = json['success'] ?? true;
+    
+    final rawData = json['data'];
+    if (rawData != null) {
+      if (rawData is Map<String, dynamic>) {
+        data = CartDetailData.fromJson(rawData);
+      } else if (rawData is List) {
+        // If data is directly a List of items, wrap it in CartDetailData
+        data = CartDetailData(
+          items: rawData
+              .map((v) => CartDetailItem.fromJson(v as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+    } else {
+      // Check for other potential root-level keys containing the items list
+      final alternativeItems = json['items'] ?? json['cart_items'] ?? json['cart'];
+      if (alternativeItems is List) {
+        data = CartDetailData(
+          items: alternativeItems
+              .map((v) => CartDetailItem.fromJson(v as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['success'] = success;
-    if (this.data != null) {
-      data['data'] = this.data!.toJson();
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['success'] = success;
+    if (data != null) {
+      out['data'] = data!.toJson();
     }
-    return data;
+    return out;
   }
 }
 
@@ -35,28 +58,41 @@ class CartDetailData {
   });
 
   CartDetailData.fromJson(Map<String, dynamic> json) {
-    cartId = json['cart_id'];
-    userId = json['user_id'];
-    if (json['items'] != null) {
+    cartId = _toInt(json['cart_id'] ?? json['id'] ?? json['cartId']);
+    userId = _toInt(json['user_id'] ?? json['userId']);
+    
+    final itemsJson = json['items'] ?? json['cart_items'] ?? json['products'] ?? json['data'];
+    if (itemsJson is List) {
       items = <CartDetailItem>[];
-      json['items'].forEach((v) {
-        items!.add(CartDetailItem.fromJson(v));
-      });
+      for (final v in itemsJson) {
+        if (v is Map<String, dynamic>) {
+          items!.add(CartDetailItem.fromJson(v));
+        }
+      }
     }
-    totalItems = json['total_items'];
-    subtotal = json['subtotal'];
+    
+    totalItems = _toInt(json['total_items'] ?? json['totalItems'] ?? json['total'] ?? json['count']);
+    
+    final subtotalVal = json['subtotal'] ?? json['total_price'] ?? json['subtotal_price'] ?? json['total'];
+    if (subtotalVal != null) {
+      if (subtotalVal is num) {
+        subtotal = subtotalVal.toInt();
+      } else {
+        subtotal = double.tryParse(subtotalVal.toString())?.toInt();
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['cart_id'] = cartId;
-    data['user_id'] = userId;
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['cart_id'] = cartId;
+    out['user_id'] = userId;
     if (items != null) {
-      data['items'] = items!.map((v) => v.toJson()).toList();
+      out['items'] = items!.map((v) => v.toJson()).toList();
     }
-    data['total_items'] = totalItems;
-    data['subtotal'] = subtotal;
-    return data;
+    out['total_items'] = totalItems;
+    out['subtotal'] = subtotal;
+    return out;
   }
 }
 
@@ -82,26 +118,73 @@ class CartDetailItem {
   });
 
   CartDetailItem.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
-    productId = json['product_id'];
-    quantity = json['quantity'];
-    priceAtPurchase = json['price_at_purchase'];
-    name = json['name'];
-    price = json['price'];
-    images = json['images'];
-    sku = json['sku'];
+    id = _toInt(json['id'] ?? json['cart_item_id'] ?? json['item_id']);
+    
+    productId = _toInt(
+      json['product_id'] ??
+      json['productId'] ??
+      (json['product'] is Map ? (json['product'] as Map)['id'] : null) ??
+      json['id']
+    );
+    
+    quantity = _toInt(json['quantity'] ?? json['qty'] ?? json['quantity_ordered'] ?? 1);
+    
+    priceAtPurchase = (
+      json['price_at_purchase'] ??
+      json['purchase_price'] ??
+      json['price'] ??
+      ''
+    ).toString();
+    
+    name = (
+      json['name'] ??
+      json['product_name'] ??
+      json['title'] ??
+      (json['product'] is Map ? (json['product'] as Map)['name'] ?? (json['product'] as Map)['title'] : null) ??
+      ''
+    ).toString().trim();
+    
+    price = (
+      json['price'] ??
+      json['unit_price'] ??
+      (json['product'] is Map ? (json['product'] as Map)['price'] : null) ??
+      json['price_at_purchase'] ??
+      ''
+    ).toString();
+    
+    final imgVal = json['images'] ??
+        json['image'] ??
+        json['product_image'] ??
+        (json['product'] is Map ? (json['product'] as Map)['images'] ?? (json['product'] as Map)['image'] : null);
+    if (imgVal is List && imgVal.isNotEmpty) {
+      images = imgVal.first.toString();
+    } else {
+      images = imgVal?.toString();
+    }
+    
+    sku = (
+      json['sku'] ??
+      (json['product'] is Map ? (json['product'] as Map)['sku'] : null) ??
+      ''
+    ).toString();
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['id'] = id;
-    data['product_id'] = productId;
-    data['quantity'] = quantity;
-    data['price_at_purchase'] = priceAtPurchase;
-    data['name'] = name;
-    data['price'] = price;
-    data['images'] = images;
-    data['sku'] = sku;
-    return data;
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['id'] = id;
+    out['product_id'] = productId;
+    out['quantity'] = quantity;
+    out['price_at_purchase'] = priceAtPurchase;
+    out['name'] = name;
+    out['price'] = price;
+    out['images'] = images;
+    out['sku'] = sku;
+    return out;
   }
+}
+
+int? _toInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }

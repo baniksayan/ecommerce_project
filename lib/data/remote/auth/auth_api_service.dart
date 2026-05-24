@@ -28,6 +28,19 @@ class AuthApiService {
     return RegisterResponseModel.fromJson(response);
   }
 
+  Future<Map<String, dynamic>> verifyRegister({
+    required String email,
+    required String otp,
+  }) async {
+    return _apiClient.post(
+      AuthEndpoints.verifyRegister,
+      body: {
+        'email': email,
+        'otp': otp,
+      },
+    );
+  }
+
   Future<VerifyLoginOtpResponseModel> verifyLoginOtp({
     required String email,
     required String otp,

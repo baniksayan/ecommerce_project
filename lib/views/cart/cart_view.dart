@@ -21,6 +21,8 @@ import '../../data/models/address_models.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/wishlist_item_model.dart';
+import '../../models/product_list_model.dart';
+import '../../services/api_service.dart';
 import '../../viewmodels/cart_viewmodel.dart';
 import '../addresses/manual_address_form_view.dart';
 import '../checkout/checkout_view.dart';
@@ -53,46 +55,18 @@ class CartView extends StatefulWidget {
 }
 
 class _CartViewState extends State<CartView> with TickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+
   late final CartViewModel _vm;
   late final AnimationController _emptyStateController;
   late final Animation<double> _floatAnimation;
 
   AddressCache? _addressCache;
   bool _addressLoading = true;
+  bool _recommendedLoading = true;
   int _retryCount = 0;
 
-  final List<ProductModel> _recommendedItems = const [
-    ProductModel(
-      id: 'cart-rec-1',
-      category: ProductCategory.grocery,
-      name: 'Premium Headphones',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-      price: 199.99,
-      rating: 4.8,
-      reviewCount: 120,
-    ),
-    ProductModel(
-      id: 'cart-rec-2',
-      category: ProductCategory.grocery,
-      name: 'Smart Watch',
-      imageUrl:
-          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400',
-      price: 129.5,
-      rating: 4.5,
-      reviewCount: 85,
-    ),
-    ProductModel(
-      id: 'cart-rec-3',
-      category: ProductCategory.grocery,
-      name: 'Running Shoes',
-      imageUrl:
-          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
-      price: 89.99,
-      rating: 4.7,
-      reviewCount: 214,
-    ),
-  ];
+  List<ProductModel> _recommendedItems = const <ProductModel>[];
 
   @override
   void initState() {
@@ -100,6 +74,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
     _vm = CartViewModel();
     _vm.init();
     _loadAddressCache();
+    _loadRecommendedProducts();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -138,6 +113,76 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
       if (!mounted) return;
       setState(() => _addressLoading = false);
     }
+  }
+
+  Future<void> _loadRecommendedProducts() async {
+    if (!mounted) return;
+    setState(() => _recommendedLoading = true);
+
+    try {
+      final response = await _apiService.getProducts();
+      final items = (response.data ?? const <ProductItemModel>[])
+          .where((p) => p.id != null && (p.name ?? '').trim().isNotEmpty)
+          .toList(growable: false)
+          .asMap()
+          .entries
+          .map((entry) => _mapApiProduct(entry.value, entry.key))
+          .toList(growable: false);
+
+      if (!mounted) return;
+      setState(() {
+        _recommendedItems = items.take(10).toList(growable: false);
+        _recommendedLoading = false;
+      });
+    } catch (e) {
+      debugPrint('[CartView] Failed to load recommended products: $e');
+      if (!mounted) return;
+      setState(() {
+        _recommendedItems = const <ProductModel>[];
+        _recommendedLoading = false;
+      });
+    }
+  }
+
+  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+    final id = item.id?.toString() ?? 'cart-api-$index';
+    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+
+    return ProductModel(
+      id: id,
+      category: _categoryFromApiName(item.categoryName),
+      name: item.name!.trim(),
+      imageUrl: _apiService.resolveImageUrl(item.images),
+      price: price,
+      originalPrice: null,
+      discountTag: null,
+      rating: null,
+      reviewCount: null,
+      reviews: const [],
+      stockLeft: null,
+      isFastDelivery: null,
+      isBestSeller: null,
+    );
+  }
+
+  ProductCategory _categoryFromApiName(String? categoryName) {
+    final value = (categoryName ?? '').toLowerCase();
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return ProductCategory.grocery;
   }
 
   Future<void> _openManualAddressForm({ManualAddress? existing}) async {
@@ -375,62 +420,79 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
-                      EcommerceSectionTitle(
-                        title: 'Recommended for you',
-                        actionText: 'See All',
-                        onActionTap: () {
-                          ProductListingCoordinator.instance.openListing(
-                            context,
-                            category: ProductCategory.grocery,
-                            currentBottomBarIndex: widget.currentBottomBarIndex,
-                          );
-                        },
-                      ),
-                      Builder(
-                        builder: (context) {
-                          final screenWidth = MediaQuery.sizeOf(context).width;
-                          final cardWidth = ((screenWidth - 32 - 12) / 2)
-                              .clamp(150.0, 220.0)
-                              .toDouble();
-                          final cardHeight = cardWidth / 0.58;
-
-                          return SizedBox(
-                            height: cardHeight,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                              ),
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(
-                                decelerationRate: ScrollDecelerationRate.normal,
-                              ),
-                              itemCount: _recommendedItems.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final product = _recommendedItems[index];
-                                return SizedBox(
-                                  width: cardWidth,
-                                  child: ProductGridCard(
-                                    key: ValueKey(product.id),
-                                    product: product,
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        ProductDetailsView.route(
-                                          product: product,
-                                          currentBottomBarIndex:
-                                              widget.currentBottomBarIndex,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
+                      if (_recommendedLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 18),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                      if (_recommendedItems.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        EcommerceSectionTitle(
+                          title: 'Recommended for you',
+                          actionText: 'See All',
+                          onActionTap: () {
+                            ProductListingCoordinator.instance.openListing(
+                              context,
+                              category: ProductCategory.grocery,
+                              currentBottomBarIndex:
+                                  widget.currentBottomBarIndex,
+                            );
+                          },
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final screenWidth = MediaQuery.sizeOf(
+                              context,
+                            ).width;
+                            final cardWidth = ((screenWidth - 32 - 12) / 2)
+                                .clamp(150.0, 220.0)
+                                .toDouble();
+                            final cardHeight = cardWidth / 0.58;
+
+                            return SizedBox(
+                              height: cardHeight,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
+                                scrollDirection: Axis.horizontal,
+                                physics: const BouncingScrollPhysics(
+                                  decelerationRate:
+                                      ScrollDecelerationRate.normal,
+                                ),
+                                itemCount: _recommendedItems.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 12),
+                                itemBuilder: (context, index) {
+                                  final product = _recommendedItems[index];
+                                  return SizedBox(
+                                    width: cardWidth,
+                                    child: ProductGridCard(
+                                      key: ValueKey(product.id),
+                                      product: product,
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          ProductDetailsView.route(
+                                            product: product,
+                                            currentBottomBarIndex:
+                                                widget.currentBottomBarIndex,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   )

@@ -229,7 +229,7 @@ class _RegisterViewState extends State<RegisterView> {
 
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => OtpVerificationView(email: email),
+          builder: (_) => OtpVerificationView(email: email, isRegister: true),
         ),
       );
     } else {

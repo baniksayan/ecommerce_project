@@ -51,6 +51,10 @@ class ProductDetailsViewModel extends BaseViewModel {
   List<ProductModel> get categorySearchProducts => _categorySearchProducts;
 
   String? _apiName;
+  String? _apiDescription;
+  String? _apiSku;
+  String? _apiWeight;
+  String? _apiAttributes;
   String? _apiCategoryLabel;
   double? _apiPrice;
   double? _apiOriginalPrice;
@@ -67,6 +71,18 @@ class ProductDetailsViewModel extends BaseViewModel {
   double? get displayOriginalPrice =>
       _apiOriginalPrice ?? product.originalPrice;
   int? get displayStockLeft => _apiStockLeft ?? product.stockLeft;
+  String? get productDescription => _nonEmpty(_apiDescription);
+  String? get displaySku => _nonEmpty(_apiSku);
+  String? get displayWeight => _nonEmpty(_apiWeight);
+  String? get displayAttributes => _nonEmpty(_apiAttributes);
+  String get primaryImageUrl =>
+      _imageUrls.isNotEmpty ? _imageUrls.first : product.imageUrl;
+  bool get hasProductDetailsTableData =>
+      displayCategoryLabel.trim().isNotEmpty ||
+      displaySku != null ||
+      displayWeight != null ||
+      displayAttributes != null ||
+      displayStockLeft != null;
 
   String? get displayDiscountTag {
     if (displayOriginalPrice != null && displayOriginalPrice! > displayPrice) {
@@ -79,15 +95,6 @@ class ProductDetailsViewModel extends BaseViewModel {
     }
     return product.discountTag;
   }
-
-  String get productDescription {
-    if ((_apiDescription ?? '').trim().isNotEmpty) {
-      return _apiDescription!.trim();
-    }
-    return 'No description available.';
-  }
-
-  String? _apiDescription;
 
   Future<void> init() async {
     if (isLoading) return;
@@ -179,6 +186,10 @@ class ProductDetailsViewModel extends BaseViewModel {
 
       final list = await _apiService.getProducts();
       final apiAll = (list.data ?? const <ProductItemModel>[])
+          .where(
+            (item) => item.id != null && (item.name ?? '').trim().isNotEmpty,
+          )
+          .toList(growable: false)
           .asMap()
           .entries
           .map((entry) => _mapApiProduct(entry.value, entry.key))
@@ -205,7 +216,7 @@ class ProductDetailsViewModel extends BaseViewModel {
       }
     } catch (e) {
       if (isNetworkError(e)) rethrow;
-      // Keep static fallback data if API fails.
+      // Preserve already-loaded API/list item data if detail hydration fails.
     }
   }
 
@@ -216,9 +227,7 @@ class ProductDetailsViewModel extends BaseViewModel {
     return ProductModel(
       id: id,
       category: _categoryFromApiName(item.categoryName),
-      name: (item.name ?? '').trim().isEmpty
-          ? 'Product ${index + 1}'
-          : item.name!.trim(),
+      name: item.name!.trim(),
       imageUrl: _apiService.resolveImageUrl(item.images),
       price: price,
       originalPrice: null,
@@ -308,9 +317,9 @@ class ProductDetailsViewModel extends BaseViewModel {
     return CartCoordinator.instance.addItem(
       CartItemModel(
         productId: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
-        unitPrice: product.price,
+        name: displayName,
+        imageUrl: primaryImageUrl,
+        unitPrice: displayPrice,
         quantity: _quantity,
       ),
     );
@@ -336,12 +345,17 @@ class ProductDetailsViewModel extends BaseViewModel {
     return WishlistCoordinator.instance.addItem(
       WishlistItemModel(
         productId: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
+        name: displayName,
+        imageUrl: primaryImageUrl,
         sku: null,
-        unitPrice: product.price,
+        unitPrice: displayPrice,
       ),
     );
+  }
+
+  String? _nonEmpty(String? value) {
+    final text = (value ?? '').trim();
+    return text.isEmpty ? null : text;
   }
 
   @override

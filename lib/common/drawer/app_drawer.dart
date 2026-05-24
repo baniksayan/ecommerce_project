@@ -461,7 +461,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            if (trailingWidget != null) trailingWidget,
+            ?trailingWidget,
           ],
         ),
       ),

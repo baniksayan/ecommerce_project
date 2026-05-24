@@ -59,7 +59,7 @@ class CartCoordinator {
       subtotal.value = nextSubtotal;
     });
 
-    await _syncFromServerIfPossible();
+    await _attemptSyncFromServer();
   }
 
   Future<CartActionResult> addItem(CartItemModel item) async {
@@ -73,73 +73,113 @@ class CartCoordinator {
         message: 'Please login first',
       );
     }
-    if (productId == null) {
+
+    if (productId != null) {
+      Cartadd? response;
+      try {
+        response = await _apiService.addToCart(
+          productId: productId,
+          quantity: safeQuantity,
+          productName: item.name,
+        );
+      } on ApiServiceException catch (e) {
+        return CartActionResult(
+          success: false,
+          message:
+              'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: ${e.message}',
+        );
+      } catch (_) {
+        return CartActionResult(
+          success: false,
+          message:
+              'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Please try again.',
+        );
+      }
+
+      if (response.success == true) {
+        // Prefer server-confirmed identifiers/quantity but keep local metadata.
+        await _applyLocalCartAdd(item, response);
+
+        return CartActionResult(
+          success: true,
+          message: (response.message ?? '').trim().isNotEmpty
+              ? response.message!.trim()
+              : 'Added to cart',
+        );
+      }
+
+      final serverMessage = (response.message ?? '').trim().isNotEmpty
+          ? response.message!.trim()
+          : 'Unknown server error';
       return CartActionResult(
         success: false,
         message:
-            'Could not add to cart. Product ID: ${item.productId.trim()}, Qty: $safeQuantity',
+            'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: $serverMessage',
       );
+    } else {
+      // Mock item fallback (non-numeric product ID)
+      await _repository.upsertItem(item);
+      return const CartActionResult(success: true, message: 'Added to cart');
     }
-
-    Cartadd? response;
-    try {
-      response = await _apiService.addToCart(
-        productId: productId,
-        quantity: safeQuantity,
-        productName: item.name,
-      );
-    } on ApiServiceException catch (e) {
-      return CartActionResult(
-        success: false,
-        message:
-            'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: ${e.message}',
-      );
-    } catch (_) {
-      return CartActionResult(
-        success: false,
-        message:
-            'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Please try again.',
-      );
-    }
-
-    try {
-      await _syncFromServerIfPossible();
-    } catch (_) {
-      // Add request already succeeded; ignore sync errors for user feedback.
-    }
-
-    if (response.success == true) {
-      return CartActionResult(
-        success: true,
-        message: (response.message ?? '').trim().isNotEmpty
-            ? response.message!.trim()
-            : 'Added to cart',
-      );
-    }
-
-    final serverMessage = (response.message ?? '').trim().isNotEmpty
-        ? response.message!.trim()
-        : 'Unknown server error';
-    return CartActionResult(
-      success: false,
-      message:
-          'Add to cart failed for product_id=$productId, quantity=$safeQuantity. Server says: $serverMessage',
-    );
   }
 
   Future<void> setQuantity(String productId, int quantity) async {
     await init();
     final numericProductId = int.tryParse(productId.trim());
     final safeQuantity = quantity.clamp(1, 999);
-    if (_hasSession && numericProductId != null) {
-      try {
-        await _apiService.addToCart(
-          productId: numericProductId,
+    if (_hasSession) {
+      final existingItems = await _repository.getItems();
+      final existing = existingItems.firstWhere(
+        (e) => e.productId == productId,
+        orElse: () => CartItemModel(
+          productId: productId,
+          name: 'Product $productId',
+          unitPrice: 0.0,
           quantity: safeQuantity,
+        ),
+      );
+
+      if (numericProductId != null) {
+        bool remoteSuccess = false;
+        try {
+          await _apiService.updateCart(
+            productId: numericProductId,
+            quantity: safeQuantity,
+          );
+          remoteSuccess = true;
+        } catch (_) {
+          try {
+            await _apiService.addToCart(
+              productId: numericProductId,
+              quantity: safeQuantity,
+            );
+            remoteSuccess = true;
+          } catch (_) {}
+        }
+
+        if (remoteSuccess) {
+          await _repository.upsertItem(
+            CartItemModel(
+              productId: existing.productId,
+              name: existing.name,
+              imageUrl: existing.imageUrl,
+              unitPrice: existing.unitPrice,
+              quantity: safeQuantity,
+            ),
+          );
+          await _attemptSyncFromServer();
+        }
+      } else {
+        // Mock item update
+        await _repository.upsertItem(
+          CartItemModel(
+            productId: existing.productId,
+            name: existing.name,
+            imageUrl: existing.imageUrl,
+            unitPrice: existing.unitPrice,
+            quantity: safeQuantity,
+          ),
         );
-        await _syncFromServerIfPossible();
-      } catch (_) {
-        // Keep previous mirrored state when remote sync fails.
       }
     }
   }
@@ -147,12 +187,21 @@ class CartCoordinator {
   Future<void> removeItem(String productId) async {
     await init();
     final numericProductId = int.tryParse(productId.trim());
-    if (_hasSession && numericProductId != null) {
-      try {
-        await _apiService.removeFromCart(productId: numericProductId);
-        await _syncFromServerIfPossible();
-      } catch (_) {
-        // Keep previous mirrored state when remote sync fails.
+    if (_hasSession) {
+      if (numericProductId != null) {
+        bool remoteSuccess = false;
+        try {
+          await _apiService.removeFromCart(productId: numericProductId);
+          remoteSuccess = true;
+        } catch (_) {}
+
+        if (remoteSuccess) {
+          await _repository.removeItem(productId);
+          await _attemptSyncFromServer();
+        }
+      } else {
+        // Mock item remove
+        await _repository.removeItem(productId);
       }
     }
   }
@@ -160,11 +209,15 @@ class CartCoordinator {
   Future<void> clear() async {
     await init();
     if (_hasSession) {
+      bool remoteSuccess = false;
       try {
         await _apiService.clearCart();
-        await _syncFromServerIfPossible();
-      } catch (_) {
-        // Keep previous mirrored state when remote sync fails.
+        remoteSuccess = true;
+      } catch (_) {}
+
+      if (remoteSuccess) {
+        await _repository.clear();
+        await _attemptSyncFromServer();
       }
     }
   }
@@ -172,7 +225,36 @@ class CartCoordinator {
   Future<void> syncFromServer() async {
     await init();
 
-    await _syncFromServerIfPossible();
+    await _attemptSyncFromServer();
+  }
+
+  Future<void> _attemptSyncFromServer() async {
+    try {
+      await _syncFromServerIfPossible();
+    } catch (e, stack) {
+      debugPrint('[CartCoordinator] Sync failed: $e\n$stack');
+      // Keep local repository state as source of truth temporarily.
+    }
+  }
+
+  Future<void> _applyLocalCartAdd(CartItemModel item, Cartadd response) async {
+    final serverProductId = response.data?.productId?.toString();
+    final serverQuantity = response.data?.quantity;
+
+    final resolvedProductId = (serverProductId ?? item.productId).trim().isEmpty
+        ? item.productId
+        : (serverProductId ?? item.productId).trim();
+    final resolvedQuantity = (serverQuantity ?? item.quantity).clamp(1, 999);
+
+    await _repository.upsertItem(
+      CartItemModel(
+        productId: resolvedProductId,
+        name: item.name,
+        imageUrl: item.imageUrl,
+        unitPrice: item.unitPrice,
+        quantity: resolvedQuantity,
+      ),
+    );
   }
 
   Future<void> _syncFromServerIfPossible() async {
@@ -185,33 +267,45 @@ class CartCoordinator {
       return;
     }
 
-    try {
-      final response = await _apiService.getCartDetail();
-      final items = response.data?.items ?? <CartDetailItem>[];
+    final response = await _apiService.getCartDetail();
+    if (response == null) {
+      debugPrint(
+        '[CartCoordinator] Sync skipped: cart detail unavailable; keeping local state.',
+      );
+      return;
+    }
 
-      await _repository.clear();
-      for (final item in items) {
-        final productId = item.productId?.toString();
-        final name = (item.name ?? '').trim();
-        final price = double.tryParse((item.price ?? '').toString()) ?? 0.0;
-        final quantity = item.quantity ?? 1;
+    if (response.success != true || response.data == null) {
+      debugPrint(
+        '[CartCoordinator] Sync skipped: invalid cart payload; keeping local state.',
+      );
+      return;
+    }
 
-        if (productId == null || productId.isEmpty || name.isEmpty) {
-          continue;
-        }
+    final items = response.data?.items ?? <CartDetailItem>[];
 
-        await _repository.upsertItem(
-          CartItemModel(
-            productId: productId,
-            name: name,
-            imageUrl: item.images,
-            unitPrice: price,
-            quantity: quantity,
-          ),
-        );
+    await _repository.clear();
+    for (final item in items) {
+      final productId = item.productId?.toString();
+      final name = (item.name ?? '').trim();
+      final price = double.tryParse((item.price ?? '').toString()) ?? 0.0;
+      final quantity = item.quantity ?? 1;
+
+      if (productId == null || productId.isEmpty) {
+        continue;
       }
-    } catch (_) {
-      // Do not interrupt app flow for sync failures.
+
+      final displayName = name.isEmpty ? 'Product $productId' : name;
+
+      await _repository.upsertItem(
+        CartItemModel(
+          productId: productId,
+          name: displayName,
+          imageUrl: item.images,
+          unitPrice: price,
+          quantity: quantity,
+        ),
+      );
     }
   }
 

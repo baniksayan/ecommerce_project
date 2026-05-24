@@ -11,6 +11,8 @@ import '../../core/utils/app_currency.dart';
 import '../../data/models/address_models.dart';
 import '../../viewmodels/cart_viewmodel.dart';
 import '../addresses/manual_address_form_view.dart';
+import '../../services/api_service.dart';
+import '../main/main_view.dart';
 
 class CheckoutView extends StatefulWidget {
   final int currentBottomBarIndex;
@@ -34,10 +36,14 @@ class _CheckoutViewState extends State<CheckoutView> {
   bool _summaryExpanded = true;
   bool _deliveryOptionsExpanded = false;
   bool _needCarryBag = false;
+  String _selectedPaymentMethod = 'Cash on Delivery';
+  bool _placingOrder = false;
+  late final TextEditingController _addressCtrl;
 
   @override
   void initState() {
     super.initState();
+    _addressCtrl = TextEditingController();
     _cartVm = CartViewModel();
     _cartVm.init();
     _loadAddressCache();
@@ -46,6 +52,7 @@ class _CheckoutViewState extends State<CheckoutView> {
   @override
   void dispose() {
     _couponCtrl.dispose();
+    _addressCtrl.dispose();
     _cartVm.dispose();
     super.dispose();
   }
@@ -59,6 +66,7 @@ class _CheckoutViewState extends State<CheckoutView> {
       setState(() {
         _addressCache = cache;
         _addressLoading = false;
+        _addressCtrl.text = _addressSubtitle(cache);
       });
     } catch (_) {
       if (!mounted) return;
@@ -186,7 +194,7 @@ class _CheckoutViewState extends State<CheckoutView> {
                   id: AddressRepositoryKeys.autoId,
                   title: 'Current Location',
                   subtitle: autoSubtitle,
-                  enabled: false,
+                  enabled: true,
                 ),
                 if (cache.manualAddresses.isNotEmpty) const Divider(height: 1),
                 for (final m in cache.manualAddresses)
@@ -284,6 +292,122 @@ class _CheckoutViewState extends State<CheckoutView> {
     return 0.0;
   }
 
+  Future<void> _placeOrder() async {
+    final cache = _addressCache;
+    if (cache == null) {
+      AppSnackbar.error(context, 'Please wait for address details to load.');
+      return;
+    }
+
+    final addressStr = _addressCtrl.text.trim();
+    if (addressStr.isEmpty || addressStr.toLowerCase().contains('select') || addressStr.toLowerCase().contains('not detected')) {
+      AppSnackbar.error(context, 'Please select, add or type a delivery address first.');
+      return;
+    }
+
+    setState(() => _placingOrder = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      final itemsSubtotal = _cartVm.subtotal;
+      final coupon = _appliedCoupon;
+      final delivery = (coupon?.freeDelivery == true) ? 0.0 : 10.0;
+      final discount = _discountAmount(itemsSubtotal: itemsSubtotal, coupon: coupon);
+      final total = (itemsSubtotal - discount) + delivery + _cartVm.handlingCharge + _cartVm.smallOrderSurcharge;
+
+      final api = ApiService();
+      final res = await api.createOrder(
+        address: addressStr,
+        paymentMethod: _selectedPaymentMethod,
+        totalAmount: total,
+      );
+
+      if (res.success == true) {
+        // Clear remote and local cart
+        await _cartVm.clear();
+        
+        if (!mounted) return;
+        
+        // Show stunning order success dialog
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) {
+            final theme = Theme.of(ctx);
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              backgroundColor: theme.cardColor,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.primaryColor.withValues(alpha: 0.12),
+                      ),
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        color: theme.primaryColor,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Order Created!',
+                      style: AppTextStyles.heading2.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Your order #${res.orderId ?? 'successful'} has been placed successfully.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    AppButton.primary(
+                      text: 'Track Order',
+                      isFullWidth: true,
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        Navigator.pop(ctx);
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MainView(initialIndex: 2),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      } else {
+        if (!mounted) return;
+        AppSnackbar.error(context, res.message ?? 'Failed to place order. Please try again.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _placingOrder = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -295,7 +419,7 @@ class _CheckoutViewState extends State<CheckoutView> {
         final cache = _addressCache;
 
         final itemsSubtotal = _cartVm.subtotal;
-        final baseDelivery = _cartVm.deliveryCharge;
+        final baseDelivery = 10.0;
         final baseHandling = _cartVm.handlingCharge;
         final baseSmallOrder = _cartVm.smallOrderSurcharge;
 
@@ -347,9 +471,10 @@ class _CheckoutViewState extends State<CheckoutView> {
                           addressTitle: cache == null
                               ? 'Delivery Address'
                               : _addressTitle(cache),
-                          addressSubtitle: cache == null
-                              ? 'Select an address for delivery'
-                              : _addressSubtitle(cache),
+                          addressController: _addressCtrl,
+                          onLocateMe: () {
+                            _loadAddressCache();
+                          },
                           estimateText: _deliveryEstimateText(
                             inStock: _itemsLikelyInStockForEstimate(),
                           ),
@@ -419,7 +544,14 @@ class _CheckoutViewState extends State<CheckoutView> {
                       const SizedBox(height: 12),
                       _CheckoutSectionCard(
                         title: 'Payment Method',
-                        child: _PaymentMethodCard(),
+                        child: _PaymentMethodCard(
+                          selectedMethod: _selectedPaymentMethod,
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedPaymentMethod = val;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -462,13 +594,8 @@ class _CheckoutViewState extends State<CheckoutView> {
                   AppButton.primary(
                     text: 'Place Order',
                     isFullWidth: true,
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      AppSnackbar.success(
-                        context,
-                        'Order placed (demo). Cash on Delivery selected.',
-                      );
-                    },
+                    isLoading: _placingOrder,
+                    onPressed: _placingOrder ? null : _placeOrder,
                   ),
                 ],
               ),
@@ -519,78 +646,6 @@ class _CheckoutSectionCard extends StatelessWidget {
           child,
         ],
       ),
-    );
-  }
-}
-
-class _AddressPreview extends StatelessWidget {
-  final bool loading;
-  final String title;
-  final String subtitle;
-
-  const _AddressPreview({
-    required this.loading,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-
-    final fontSize = AppTextStyles.bodyMedium.fontSize ?? 14.0;
-    final iconTopPadding = (fontSize * 0.18).clamp(2.0, 6.0);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(top: iconTopPadding),
-          child: Icon(
-            Icons.location_on_outlined,
-            size: 18,
-            color: theme.primaryColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: loading
-              ? Text(
-                  'Loading address…',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: onSurface.withValues(alpha: 0.75),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (subtitle.trim().isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: AppTextStyles.caption.copyWith(
-                          color: onSurface.withValues(alpha: 0.65),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-        ),
-      ],
     );
   }
 }
@@ -771,46 +826,117 @@ class _CouponSection extends StatelessWidget {
 }
 
 class _PaymentMethodCard extends StatelessWidget {
+  final String selectedMethod;
+  final ValueChanged<String> onChanged;
+
+  const _PaymentMethodCard({
+    required this.selectedMethod,
+    required this.onChanged,
+  });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
 
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
+    Widget buildOption({
+      required String title,
+      required String subtitle,
+      required IconData icon,
+      required String value,
+    }) {
+      final isSelected = selectedMethod == value;
+      return InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onChanged(value);
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.primaryColor.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? theme.primaryColor
+                  : theme.dividerColor.withValues(alpha: 0.1),
+              width: 1.5,
+            ),
+            color: isSelected
+                ? theme.primaryColor.withValues(alpha: 0.05)
+                : Colors.transparent,
           ),
-          child: Icon(Icons.payments_outlined, color: theme.primaryColor),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                'Cash on Delivery',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: onSurface,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? theme.primaryColor.withValues(alpha: 0.15)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected
+                      ? theme.primaryColor
+                      : onSurface.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                'Pay in cash when your order arrives.',
-                style: AppTextStyles.caption.copyWith(
-                  color: onSurface.withValues(alpha: 0.65),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.caption.copyWith(
+                        color: onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                isSelected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                color: isSelected
+                    ? theme.primaryColor
+                    : onSurface.withValues(alpha: 0.3),
+                size: 20,
               ),
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        Icon(Icons.check_circle_rounded, color: theme.primaryColor, size: 22),
+      );
+    }
+
+    return Column(
+      children: [
+        buildOption(
+          title: 'Cash on Delivery',
+          subtitle: 'Pay in cash when your order arrives.',
+          icon: Icons.payments_outlined,
+          value: 'Cash on Delivery',
+        ),
+        const SizedBox(height: 10),
+        buildOption(
+          title: 'Online Payment',
+          subtitle: 'Pay securely using Card, UPI, or NetBanking.',
+          icon: Icons.credit_card_outlined,
+          value: 'Online Payment',
+        ),
       ],
     );
   }
@@ -819,7 +945,8 @@ class _PaymentMethodCard extends StatelessWidget {
 class _EstimatedDeliveryContent extends StatelessWidget {
   final bool addressLoading;
   final String addressTitle;
-  final String addressSubtitle;
+  final TextEditingController addressController;
+  final VoidCallback onLocateMe;
   final String estimateText;
   final String note;
   final bool optionsExpanded;
@@ -830,7 +957,8 @@ class _EstimatedDeliveryContent extends StatelessWidget {
   const _EstimatedDeliveryContent({
     required this.addressLoading,
     required this.addressTitle,
-    required this.addressSubtitle,
+    required this.addressController,
+    required this.onLocateMe,
     required this.estimateText,
     required this.note,
     required this.optionsExpanded,
@@ -850,10 +978,60 @@ class _EstimatedDeliveryContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _AddressPreview(
-          loading: addressLoading,
-          title: addressTitle,
-          subtitle: addressSubtitle,
+        Text(
+          addressTitle,
+          style: AppTextStyles.bodyMedium.copyWith(
+            fontWeight: FontWeight.w700,
+            color: onSurface.withValues(alpha: 0.85),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: addressController,
+          maxLines: 2,
+          minLines: 1,
+          style: AppTextStyles.bodyMedium.copyWith(color: onSurface),
+          decoration: InputDecoration(
+            hintText: 'Enter your delivery address...',
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.15)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.25)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+            ),
+            prefixIcon: Icon(Icons.location_on_outlined, color: theme.primaryColor, size: 20),
+            suffixIcon: addressLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.my_location_rounded, size: 20),
+                    color: theme.primaryColor,
+                    tooltip: 'Detect Current Location',
+                    onPressed: () async {
+                      HapticFeedback.selectionClick();
+                      // Trigger locate me re-detection
+                      await AddressLocationCoordinator.instance.locateMeAgain(context);
+                      onLocateMe();
+                    },
+                  ),
+          ),
         ),
         const SizedBox(height: 12),
         Row(

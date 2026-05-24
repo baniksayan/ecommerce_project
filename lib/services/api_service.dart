@@ -21,6 +21,7 @@ import '../models/product_list_model.dart';
 import '../models/wishlist_add_model.dart';
 import '../models/wishlist_list_model.dart';
 import '../models/wishlist_remove_model.dart';
+import '../models/order_models.dart';
 
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
@@ -129,16 +130,34 @@ class ApiService {
     return Cartlist.fromJson(jsonMap);
   }
 
-  Future<Cartdetail> getCartDetail({int? userId}) async {
+  Future<Cartdetail?> getCartDetail({int? userId}) async {
     final resolvedUserId = _resolveUserId(userId);
-    final jsonMap = await _get(
-      'cart/detail.php',
-      queryParameters: resolvedUserId == null
-          ? null
-          : <String, String>{'user_id': resolvedUserId.toString()},
-      withAuth: true,
-    );
-    return Cartdetail.fromJson(jsonMap);
+    final queryParams = resolvedUserId == null
+        ? null
+        : <String, String>{'user_id': resolvedUserId.toString()};
+
+    try {
+      final jsonMap = await _get(
+        'cart/list.php',
+        queryParameters: queryParams,
+        withAuth: true,
+      );
+      return Cartdetail.fromJson(jsonMap);
+    } on ApiServiceException catch (e) {
+      // Treat unavailable endpoint/user cart as a soft failure for UX continuity.
+      if (e.statusCode == 404) {
+        return null;
+      }
+      if (kDebugMode) {
+        debugPrint('[ApiService] getCartDetail cart/list.php failed: $e');
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ApiService] getCartDetail cart/list.php failed: $e');
+      }
+      return null;
+    }
   }
 
   Future<Cartadd> addToCart({
@@ -245,8 +264,15 @@ class ApiService {
     required Map<String, String> query,
   }) async {
     try {
+      final resolvedUserId =
+          jsonBody['user_id']?.toString() ?? jsonBody['userId']?.toString();
+      final queryParams = resolvedUserId != null
+          ? <String, String>{'user_id': resolvedUserId}
+          : null;
+
       final jsonMap = await _post(
         'cart/add.php',
+        queryParameters: queryParams,
         body: jsonBody,
         withAuth: true,
       );
@@ -460,30 +486,100 @@ class ApiService {
     String? cartItemId,
   }) async {
     final resolvedUserId = _resolveUserId(userId);
-    final body = <String, dynamic>{};
-    if (resolvedUserId != null) {
-      body['user_id'] = resolvedUserId;
-    }
-    if (productId != null) {
-      body['product_id'] = productId;
-    }
-    if (cartItemId?.trim().isNotEmpty ?? false) {
-      body['cart_item_id'] = cartItemId;
-    }
 
-    final jsonMap = await _post('cart/remove.php', body: body, withAuth: true);
-    return Cartremove.fromJson(jsonMap);
+    // Postman: DELETE /cart/remove.php?user_id=1&cart_item_id=1
+    try {
+      final queryParams = <String, String>{};
+      if (resolvedUserId != null) {
+        queryParams['user_id'] = resolvedUserId.toString();
+      }
+      final itemOrProdId = (cartItemId != null && cartItemId.isNotEmpty)
+          ? cartItemId
+          : productId?.toString();
+
+      if (itemOrProdId != null) {
+        queryParams['cart_item_id'] = itemOrProdId;
+        queryParams['product_id'] = itemOrProdId;
+      }
+
+      final jsonMap = await _delete(
+        'cart/remove.php',
+        queryParameters: queryParams,
+        withAuth: true,
+      );
+      return Cartremove.fromJson(jsonMap);
+    } catch (_) {
+      final body = <String, dynamic>{};
+      if (resolvedUserId != null) {
+        body['user_id'] = resolvedUserId;
+      }
+      if (productId != null) {
+        body['product_id'] = productId;
+      }
+      if (cartItemId?.trim().isNotEmpty ?? false) {
+        body['cart_item_id'] = cartItemId;
+      }
+
+      final jsonMap = await _post(
+        'cart/remove.php',
+        body: body,
+        withAuth: true,
+      );
+      return Cartremove.fromJson(jsonMap);
+    }
   }
 
   Future<Cartclear> clearCart({int? userId}) async {
     final resolvedUserId = _resolveUserId(userId);
-    final body = <String, dynamic>{};
-    if (resolvedUserId != null) {
-      body['user_id'] = resolvedUserId;
+
+    // Postman: DELETE /cart/clear.php?user_id=1
+    try {
+      final queryParams = resolvedUserId != null
+          ? <String, String>{'user_id': resolvedUserId.toString()}
+          : null;
+
+      final jsonMap = await _delete(
+        'cart/clear.php',
+        queryParameters: queryParams,
+        withAuth: true,
+      );
+      return Cartclear.fromJson(jsonMap);
+    } catch (_) {
+      final body = <String, dynamic>{};
+      if (resolvedUserId != null) {
+        body['user_id'] = resolvedUserId;
+      }
+
+      final jsonMap = await _post('cart/clear.php', body: body, withAuth: true);
+      return Cartclear.fromJson(jsonMap);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCart({
+    int? userId,
+    int? cartItemId,
+    int? productId,
+    required int quantity,
+  }) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final queryParams = resolvedUserId != null
+        ? <String, String>{'user_id': resolvedUserId.toString()}
+        : null;
+
+    final body = <String, dynamic>{'quantity': quantity};
+    if (cartItemId != null) {
+      body['cart_item_id'] = cartItemId;
+    }
+    if (productId != null) {
+      body['product_id'] = productId;
     }
 
-    final jsonMap = await _post('cart/clear.php', body: body, withAuth: true);
-    return Cartclear.fromJson(jsonMap);
+    return _put(
+      'cart/update.php',
+      queryParameters: queryParams,
+      body: body,
+      withAuth: true,
+    );
   }
 
   Future<Wishlistlist> getWishlist({int? userId}) async {
@@ -503,13 +599,74 @@ class ApiService {
     required int productId,
   }) async {
     final resolvedUserId = _resolveUserId(userId);
-    final body = <String, dynamic>{'product_id': productId};
+
+    final jsonBody = <String, dynamic>{
+      'product_id': productId,
+      'productId': productId,
+    };
+    final formBody = <String, String>{
+      'product_id': productId.toString(),
+      'productId': productId.toString(),
+    };
+    final query = <String, String>{
+      'product_id': productId.toString(),
+      'productId': productId.toString(),
+    };
+
     if (resolvedUserId != null) {
-      body['user_id'] = resolvedUserId;
+      jsonBody['user_id'] = resolvedUserId;
+      jsonBody['userId'] = resolvedUserId;
+      formBody['user_id'] = resolvedUserId.toString();
+      formBody['userId'] = resolvedUserId.toString();
+      query['user_id'] = resolvedUserId.toString();
+      query['userId'] = resolvedUserId.toString();
     }
 
-    final jsonMap = await _post('wishlist/add.php', body: body, withAuth: true);
-    return Wishlistadd.fromJson(jsonMap);
+    // Try JSON Post
+    try {
+      final jsonMap = await _post(
+        'wishlist/add.php',
+        body: jsonBody,
+        withAuth: true,
+      );
+      final res = Wishlistadd.fromJson(jsonMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try Form Post
+    try {
+      final formMap = await _postForm(
+        'wishlist/add.php',
+        body: formBody,
+        withAuth: true,
+      );
+      final res = Wishlistadd.fromJson(formMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try POST with Query string
+    try {
+      final queryPostMap = await _post(
+        'wishlist/add.php',
+        queryParameters: query,
+        body: const <String, dynamic>{},
+        withAuth: true,
+      );
+      final res = Wishlistadd.fromJson(queryPostMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try GET with Query string
+    try {
+      final queryGetMap = await _get(
+        'wishlist/add.php',
+        queryParameters: query,
+        withAuth: true,
+      );
+      return Wishlistadd.fromJson(queryGetMap);
+    } catch (e) {
+      throw ApiServiceException('Failed to add to wishlist: $e');
+    }
   }
 
   Future<WishlistRemove> removeFromWishlist({
@@ -517,17 +674,246 @@ class ApiService {
     required int productId,
   }) async {
     final resolvedUserId = _resolveUserId(userId);
-    final body = <String, dynamic>{'product_id': productId};
+
+    final jsonBody = <String, dynamic>{
+      'product_id': productId,
+      'productId': productId,
+    };
+    final formBody = <String, String>{
+      'product_id': productId.toString(),
+      'productId': productId.toString(),
+    };
+    final query = <String, String>{
+      'product_id': productId.toString(),
+      'productId': productId.toString(),
+    };
+
     if (resolvedUserId != null) {
-      body['user_id'] = resolvedUserId;
+      jsonBody['user_id'] = resolvedUserId;
+      jsonBody['userId'] = resolvedUserId;
+      formBody['user_id'] = resolvedUserId.toString();
+      formBody['userId'] = resolvedUserId.toString();
+      query['user_id'] = resolvedUserId.toString();
+      query['userId'] = resolvedUserId.toString();
     }
 
-    final jsonMap = await _post(
-      'wishlist/remove.php',
-      body: body,
+    // Try JSON Post
+    try {
+      final jsonMap = await _post(
+        'wishlist/remove.php',
+        body: jsonBody,
+        withAuth: true,
+      );
+      final res = WishlistRemove.fromJson(jsonMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try Form Post
+    try {
+      final formMap = await _postForm(
+        'wishlist/remove.php',
+        body: formBody,
+        withAuth: true,
+      );
+      final res = WishlistRemove.fromJson(formMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try POST with Query string
+    try {
+      final queryPostMap = await _post(
+        'wishlist/remove.php',
+        queryParameters: query,
+        body: const <String, dynamic>{},
+        withAuth: true,
+      );
+      final res = WishlistRemove.fromJson(queryPostMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try GET with Query string
+    try {
+      final queryGetMap = await _get(
+        'wishlist/remove.php',
+        queryParameters: query,
+        withAuth: true,
+      );
+      return WishlistRemove.fromJson(queryGetMap);
+    } catch (e) {
+      throw ApiServiceException('Failed to remove from wishlist: $e');
+    }
+  }
+
+  Future<OrdersListResponse> getOrdersList({int? userId}) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final jsonMap = await _get(
+      'orders/list.php',
+      queryParameters: resolvedUserId == null
+          ? null
+          : <String, String>{'user_id': resolvedUserId.toString()},
       withAuth: true,
     );
-    return WishlistRemove.fromJson(jsonMap);
+    return OrdersListResponse.fromJson(jsonMap);
+  }
+
+  Future<OrderDetailResponse> getOrderDetail({
+    required int orderId,
+    int? userId,
+  }) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final jsonMap = await _get(
+      'orders/detail.php',
+      queryParameters: <String, String>{
+        if (resolvedUserId != null) 'user_id': resolvedUserId.toString(),
+        'order_id': orderId.toString(),
+        'id': orderId.toString(),
+      },
+      withAuth: true,
+    );
+    return OrderDetailResponse.fromJson(jsonMap);
+  }
+
+  Future<CreateOrderResponse> createOrder({
+    required String address,
+    required String paymentMethod,
+    double? totalAmount,
+    int? userId,
+  }) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final jsonBody = <String, dynamic>{
+      'address': address,
+      'shipping_address': address,
+      'payment_method': paymentMethod,
+      'payment_type': paymentMethod,
+      if (totalAmount != null) 'total_amount': totalAmount,
+      if (totalAmount != null) 'total': totalAmount,
+    };
+    final formBody = <String, String>{
+      'address': address,
+      'shipping_address': address,
+      'payment_method': paymentMethod,
+      'payment_type': paymentMethod,
+      if (totalAmount != null) 'total_amount': totalAmount.toString(),
+      if (totalAmount != null) 'total': totalAmount.toString(),
+    };
+    final query = <String, String>{
+      'address': address,
+      'payment_method': paymentMethod,
+      if (totalAmount != null) 'total_amount': totalAmount.toString(),
+    };
+
+    if (resolvedUserId != null) {
+      jsonBody['user_id'] = resolvedUserId;
+      formBody['user_id'] = resolvedUserId.toString();
+      query['user_id'] = resolvedUserId.toString();
+    }
+
+    // Attempt sequential formats just like addToWishlist
+    // Try JSON Post
+    try {
+      final jsonMap = await _post(
+        'orders/create.php',
+        queryParameters: resolvedUserId != null
+            ? {'user_id': resolvedUserId.toString()}
+            : null,
+        body: jsonBody,
+        withAuth: true,
+      );
+      final res = CreateOrderResponse.fromJson(jsonMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try Form Post
+    try {
+      final formMap = await _postForm(
+        'orders/create.php',
+        queryParameters: resolvedUserId != null
+            ? {'user_id': resolvedUserId.toString()}
+            : null,
+        body: formBody,
+        withAuth: true,
+      );
+      final res = CreateOrderResponse.fromJson(formMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try POST with Query string
+    try {
+      final queryPostMap = await _post(
+        'orders/create.php',
+        queryParameters: query,
+        body: const <String, dynamic>{},
+        withAuth: true,
+      );
+      final res = CreateOrderResponse.fromJson(queryPostMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try GET with Query string
+    try {
+      final queryGetMap = await _get(
+        'orders/create.php',
+        queryParameters: query,
+        withAuth: true,
+      );
+      return CreateOrderResponse.fromJson(queryGetMap);
+    } catch (e) {
+      throw ApiServiceException('Failed to place order: $e');
+    }
+  }
+
+  Future<CancelOrderResponse> cancelOrder({
+    required int orderId,
+    int? userId,
+  }) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final query = <String, String>{
+      'order_id': orderId.toString(),
+      'id': orderId.toString(),
+      if (resolvedUserId != null) 'user_id': resolvedUserId.toString(),
+    };
+
+    // Try JSON Post
+    try {
+      final jsonMap = await _post(
+        'orders/cancel.php',
+        queryParameters: query,
+        body: <String, dynamic>{
+          'order_id': orderId,
+          if (resolvedUserId != null) 'user_id': resolvedUserId,
+        },
+        withAuth: true,
+      );
+      final res = CancelOrderResponse.fromJson(jsonMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try Form Post
+    try {
+      final formMap = await _postForm(
+        'orders/cancel.php',
+        queryParameters: query,
+        body: <String, String>{
+          'order_id': orderId.toString(),
+          if (resolvedUserId != null) 'user_id': resolvedUserId.toString(),
+        },
+        withAuth: true,
+      );
+      final res = CancelOrderResponse.fromJson(formMap);
+      if (res.success == true) return res;
+    } catch (_) {}
+
+    // Try GET with Query string
+    try {
+      final queryGetMap = await _get(
+        'orders/cancel.php',
+        queryParameters: query,
+        withAuth: true,
+      );
+      return CancelOrderResponse.fromJson(queryGetMap);
+    } catch (e) {
+      throw ApiServiceException('Failed to cancel order: $e');
+    }
   }
 
   String resolveImageUrl(String? imagePath) {
@@ -716,6 +1102,140 @@ class ApiService {
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) {
         throw const ApiServiceException('Invalid response format from server.');
+      }
+
+      return decoded;
+    } on TimeoutException {
+      throw const ApiServiceException('Request timed out. Please retry.');
+    } on http.ClientException catch (e) {
+      final details = e.message.toLowerCase();
+      if (details.contains('failed host lookup')) {
+        throw const ApiServiceException(
+          'DNS lookup failed for api.mandal-variety.com. Check internet, DNS, and base URL host.',
+        );
+      }
+      throw const ApiServiceException(
+        'No internet connection. Please check network and retry.',
+      );
+    } on FormatException {
+      throw const ApiServiceException('Invalid JSON received from server.');
+    } on ApiServiceException {
+      rethrow;
+    } catch (_) {
+      throw const ApiServiceException('Unexpected error. Please try again.');
+    }
+  }
+
+  Future<Map<String, dynamic>> _put(
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
+    bool withAuth = false,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/$path',
+    ).replace(queryParameters: queryParameters);
+
+    try {
+      final response = await _client
+          .put(
+            uri,
+            headers: await _getHeaders(withAuth: withAuth),
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          )
+          .timeout(_timeout);
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await _handleUnauthorized();
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final serverMessage = _extractServerErrorMessage(response.body);
+        final serverDebug = _extractServerDebug(response.body);
+        throw ApiServiceException(
+          serverMessage ??
+              'Server error (${response.statusCode}). Please try again.',
+          statusCode: response.statusCode,
+          rawResponseBody: response.body,
+          debugData: serverDebug,
+        );
+      }
+
+      if (response.body.trim().isEmpty) {
+        throw const ApiServiceException('Server returned empty response.');
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const ApiServiceException('Invalid response format from server.');
+      }
+
+      return decoded;
+    } on TimeoutException {
+      throw const ApiServiceException('Request timed out. Please retry.');
+    } on http.ClientException catch (e) {
+      final details = e.message.toLowerCase();
+      if (details.contains('failed host lookup')) {
+        throw const ApiServiceException(
+          'DNS lookup failed for api.mandal-variety.com. Check internet, DNS, and base URL host.',
+        );
+      }
+      throw const ApiServiceException(
+        'No internet connection. Please check network and retry.',
+      );
+    } on FormatException {
+      throw const ApiServiceException('Invalid JSON received from server.');
+    } on ApiServiceException {
+      rethrow;
+    } catch (_) {
+      throw const ApiServiceException('Unexpected error. Please try again.');
+    }
+  }
+
+  Future<Map<String, dynamic>> _delete(
+    String path, {
+    Map<String, String>? queryParameters,
+    bool withAuth = false,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/$path',
+    ).replace(queryParameters: queryParameters);
+
+    try {
+      final response = await _client
+          .delete(uri, headers: await _getHeaders(withAuth: withAuth))
+          .timeout(_timeout);
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await _handleUnauthorized();
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final serverMessage = _extractServerErrorMessage(response.body);
+        final serverDebug = _extractServerDebug(response.body);
+        throw ApiServiceException(
+          serverMessage ??
+              'Server error (${response.statusCode}). Please try again.',
+          statusCode: response.statusCode,
+          rawResponseBody: response.body,
+          debugData: serverDebug,
+        );
+      }
+
+      if (response.body.trim().isEmpty) {
+        return <String, dynamic>{
+          'success': true,
+          'message': 'Deleted successfully.',
+        };
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return <String, dynamic>{
+          'success': true,
+          'message': 'Deleted successfully.',
+          'data': decoded,
+        };
       }
 
       return decoded;

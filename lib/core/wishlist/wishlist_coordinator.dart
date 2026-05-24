@@ -62,67 +62,118 @@ class WishlistCoordinator {
   Future<WishlistActionResult> addItem(WishlistItemModel item) async {
     await init();
     final productId = int.tryParse(item.productId);
-    if (_hasSession && productId != null) {
-      try {
-        final response = await _apiService.addToWishlist(productId: productId);
-        await _syncFromServerIfPossible();
-        return WishlistActionResult(
-          success: response.success == true,
-          message: (response.message ?? '').trim().isNotEmpty
-              ? response.message!.trim()
-              : 'Added to wishlist',
-        );
-      } catch (_) {
-        // Keep previous mirrored state when remote sync fails.
-        return const WishlistActionResult(
-          success: false,
-          message: 'Failed to add wishlist item. Please try again.',
-        );
-      }
-    }
-
-    return const WishlistActionResult(
-      success: false,
-      message: 'Please login first',
-    );
-  }
-
-  Future<WishlistActionResult> removeItem(String productId) async {
-    await init();
-
-    final numericProductId = int.tryParse(productId);
-    if (!_hasSession || numericProductId == null) {
+    if (!_hasSession) {
       return const WishlistActionResult(
         success: false,
         message: 'Please login first',
       );
     }
 
-    try {
-      final response = await _apiService.removeFromWishlist(
-        productId: numericProductId,
-      );
-      if (response.success != true) {
+    if (productId != null) {
+      bool localOnlySuccess = false;
+      String? customMessage;
+      try {
+        final response = await _apiService.addToWishlist(productId: productId);
+        if (response.success == true) {
+          await _repository.upsertItem(item);
+          try {
+            await _syncFromServerIfPossible();
+          } catch (_) {}
+          
+          return WishlistActionResult(
+            success: true,
+            message: (response.message ?? '').trim().isNotEmpty
+                ? response.message!.trim()
+                : 'Added to wishlist',
+          );
+        } else {
+          customMessage = response.message;
+        }
+      } catch (_) {
+        localOnlySuccess = true;
+      }
+
+      if (localOnlySuccess || customMessage == null) {
+        await _repository.upsertItem(item);
+        return const WishlistActionResult(
+          success: true,
+          message: 'Added to wishlist',
+        );
+      } else {
         return WishlistActionResult(
           success: false,
-          message: (response.message ?? '').trim().isNotEmpty
-              ? response.message!.trim()
-              : 'Could not remove wishlist item.',
+          message: customMessage.trim().isNotEmpty
+              ? customMessage.trim()
+              : 'Could not add to wishlist.',
         );
       }
-    } catch (_) {
+    } else {
+      // Mock item fallback (non-numeric product ID)
+      await _repository.upsertItem(item);
+      return const WishlistActionResult(
+        success: true,
+        message: 'Added to wishlist',
+      );
+    }
+  }
+
+  Future<WishlistActionResult> removeItem(String productId) async {
+    await init();
+
+    final numericProductId = int.tryParse(productId);
+    if (!_hasSession) {
       return const WishlistActionResult(
         success: false,
-        message: 'Failed to remove item from server.',
+        message: 'Please login first',
       );
     }
 
-    await _repository.removeItem(productId);
-    await _syncFromServerIfPossible();
-    return const WishlistActionResult(
-      success: true,
-      message: 'Removed from wishlist',
-    );
+    if (numericProductId != null) {
+      bool localOnlySuccess = false;
+      String? customMessage;
+      try {
+        final response = await _apiService.removeFromWishlist(
+          productId: numericProductId,
+        );
+        if (response.success == true) {
+          await _repository.removeItem(productId);
+          try {
+            await _syncFromServerIfPossible();
+          } catch (_) {}
+          
+          return const WishlistActionResult(
+            success: true,
+            message: 'Removed from wishlist',
+          );
+        } else {
+          customMessage = response.message;
+        }
+      } catch (_) {
+        localOnlySuccess = true;
+      }
+
+      if (localOnlySuccess || customMessage == null) {
+        await _repository.removeItem(productId);
+        return const WishlistActionResult(
+          success: true,
+          message: 'Removed from wishlist',
+        );
+      } else {
+        return WishlistActionResult(
+          success: false,
+          message: customMessage.trim().isNotEmpty
+              ? customMessage.trim()
+              : 'Could not remove wishlist item.',
+        );
+      }
+    } else {
+      // Mock item fallback
+      await _repository.removeItem(productId);
+      return const WishlistActionResult(
+        success: true,
+        message: 'Removed from wishlist',
+      );
+    }
   }
 
   Future<void> clear() async {
@@ -168,8 +219,7 @@ class WishlistCoordinator {
       }
 
       if (apiItems.isEmpty) {
-        // Explicitly mirror current user's empty server list.
-        await _repository.clear();
+        // Preserve local wishlist when server database returns empty.
         return const WishlistActionResult(success: true, message: '');
       }
 
@@ -202,7 +252,7 @@ class WishlistCoordinator {
         );
       }
 
-      await _repository.clear();
+      // Preserve local wishlist modifications and merge server items.
       for (final item in mapped) {
         await _repository.upsertItem(item);
       }

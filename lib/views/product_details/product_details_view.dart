@@ -26,7 +26,6 @@ import '../cart/cart_view.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_listing/product_listing_view.dart';
-import 'reviews_view.dart';
 import 'widgets/product_details_skeleton.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
@@ -101,8 +100,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
   bool _skeletonVisible = true;
   Timer? _skeletonTimer;
   int _retryCount = 0;
-
-  final GlobalKey _reviewsKey = GlobalKey();
 
   @override
   void initState() {
@@ -212,29 +209,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     Future<void>.delayed(const Duration(seconds: 5), () {
       _shareShown = false;
     });
-  }
-
-  void _scrollToReviews() {
-    final ctx = _reviewsKey.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 380),
-      curve: Curves.easeOut,
-      alignment: 0.05,
-    );
-  }
-
-  void _showAllReviews() {
-    Navigator.of(context).push(
-      PlatformHelper.isIOS
-          ? CupertinoPageRoute<void>(
-              builder: (_) => AllReviewsView(product: widget.product),
-            )
-          : MaterialPageRoute<void>(
-              builder: (_) => AllReviewsView(product: widget.product),
-            ),
-    );
   }
 
   Future<void> _goToCart() async {
@@ -352,26 +326,12 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       );
     }
 
-    final outOfStock =
-        widget.product.stockLeft != null && widget.product.stockLeft! <= 0;
+    final stockLeft = _vm.displayStockLeft;
+    final outOfStock = stockLeft != null && stockLeft <= 0;
 
     if (isWide) return _wideLayout(theme, outOfStock);
     return _narrowLayout(theme, outOfStock);
   }
-
-  // ── Static banner content (reused across both layouts) ─────────────────
-  static const _bannerImages = [
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
-    'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800',
-  ];
-  static const _bannerTitles = [
-    'Exclusive Deals Today',
-    'Fresh Picks Just for You',
-  ];
-  static const _bannerSubtitles = [
-    'Save big on top-rated products.',
-    'Handpicked based on your taste.',
-  ];
 
   // ── Mobile single-column ─────────────────────────────────────────────────
 
@@ -454,8 +414,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       onWishlistTap: _handleToggleWishlist,
       sharePulse: _sharePulse,
       onShareTap: _handleShare,
-      discountTag: widget.product.discountTag,
-      showFastDelivery: widget.product.isFastDelivery == true,
+      discountTag: _vm.displayDiscountTag,
       aspectRatio: tabletMode ? 0.85 : 0.95,
     );
   }
@@ -465,19 +424,14 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
     final onSurface = theme.colorScheme.onSurface;
     final primary = theme.primaryColor;
     final discountColor = isDark ? AppColors.darkError : AppColors.lightError;
-    final warningColor = isDark
-        ? AppColors.darkWarning
-        : AppColors.lightWarning;
     final successColor = isDark
         ? AppColors.darkSuccess
         : AppColors.lightSuccess;
-    final infoColor = isDark ? AppColors.darkInfo : AppColors.lightInfo;
     // Highlight colour for "Only X left" — vibrant amber, distinct from yellow
     final lowStockColor = isDark
         ? AppColors.darkLowStock
         : AppColors.lightLowStock;
 
-    final product = widget.product;
     final stockLeft = _vm.displayStockLeft;
     final outOfStock = stockLeft != null && stockLeft <= 0;
     final lowStock = stockLeft != null && stockLeft <= 5 && !outOfStock;
@@ -560,64 +514,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
 
           const SizedBox(height: 10),
 
-          // ── Rating badge + review count (tappable → scroll to reviews) ──
-          if (product.rating != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: GestureDetector(
-                onTap: _scrollToReviews,
-                behavior: HitTestBehavior.opaque,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: warningColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.star_rounded,
-                            size: 16,
-                            color: warningColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            product.rating!.toStringAsFixed(1),
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (product.reviewCount != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '${product.reviewCount} reviews',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: onSurface.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 11,
-                        color: onSurface.withValues(alpha: 0.35),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
           // ── Price section ──
           _PriceDisplay(
             price: _vm.displayPrice,
@@ -639,160 +535,85 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
               ),
             ),
 
-          // ── Delivery & Expiry info tiles ──
-          Row(
-            children: [
-              Expanded(
-                child: AppCard(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.local_shipping_outlined,
-                        size: 18,
-                        color: infoColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              outOfStock ? 'Up to 24 hrs' : '30–45 min',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Delivery*',
-                              style: AppTextStyles.caption.copyWith(
-                                color: onSurface.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: AppCard(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.event_outlined,
-                        size: 18,
-                        color: onSurface.withValues(alpha: 0.5),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '12 Aug 2026',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Expiry',
-                              style: AppTextStyles.caption.copyWith(
-                                color: onSurface.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              '*Delivery time may vary. Holidays not included.',
-              style: AppTextStyles.caption.copyWith(
-                color: onSurface.withValues(alpha: 0.4),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-
           const SizedBox(height: 20),
 
+          if ((_vm.productDescription ?? '').isNotEmpty) ...[
+            Text(
+              'Description',
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w700,
+                color: onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _vm.productDescription!,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: onSurface.withValues(alpha: 0.72),
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // ── Expandable product details (table layout, expanded by default) ──
-          AppCard.action(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _descExpanded = !_descExpanded);
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Product Details',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: onSurface,
+          if (_vm.hasProductDetailsTableData)
+            AppCard.action(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _descExpanded = !_descExpanded);
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Product Details',
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: onSurface,
+                          ),
                         ),
                       ),
-                    ),
-                    AnimatedRotation(
-                      turns: _descExpanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: onSurface.withValues(alpha: 0.5),
+                      AnimatedRotation(
+                        turns: _descExpanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: _ProductDetailsTable(
+                        categoryLabel: _vm.displayCategoryLabel,
+                        sku: _vm.displaySku,
+                        weight: _vm.displayWeight,
+                        attributes: _vm.displayAttributes,
+                        stockLeft: stockLeft,
+                        outOfStock: outOfStock,
+                        dividerColor: theme.dividerColor,
+                        onSurface: onSurface,
+                        successColor: successColor,
+                        errorColor: discountColor,
                       ),
                     ),
-                  ],
-                ),
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: _ProductDetailsTable(
-                      product: product,
-                      categoryLabel: _vm.displayCategoryLabel,
-                      stockLeft: stockLeft,
-                      outOfStock: outOfStock,
-                      dividerColor: theme.dividerColor,
-                      onSurface: onSurface,
-                      successColor: successColor,
-                      errorColor: discountColor,
-                    ),
+                    crossFadeState: _descExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 200),
+                    sizeCurve: Curves.easeOut,
                   ),
-                  crossFadeState: _descExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 200),
-                  sizeCurve: Curves.easeOut,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Customer Reviews (keyed for scroll-to) ──
-          _buildReviewsSection(theme),
 
           const SizedBox(height: 8),
         ],
@@ -825,14 +646,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
   List<Widget> _youMightAlsoLikeSlivers() => [
     _similarHeader(Theme.of(context)),
     SliverToBoxAdapter(child: _productCarousel(_vm.similarProducts)),
-    SliverToBoxAdapter(
-      child: EcommerceOfferBanner(
-        title: _bannerTitles[0],
-        subtitle: _bannerSubtitles[0],
-        imageUrl: _bannerImages[0],
-        onTap: () {},
-      ),
-    ),
   ];
 
   List<Widget> _recommendedSlivers() => [
@@ -857,14 +670,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       ),
     ),
     SliverToBoxAdapter(child: _productCarousel(_vm.recommendedProducts)),
-    SliverToBoxAdapter(
-      child: EcommerceOfferBanner(
-        title: _bannerTitles[1],
-        subtitle: _bannerSubtitles[1],
-        imageUrl: _bannerImages[1],
-        onTap: () {},
-      ),
-    ),
   ];
 
   List<Widget> _categorySearchSlivers() => [
@@ -939,189 +744,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
       ),
     );
   }
-
-  // ── Customer Reviews section ───────────────────────────────────────────────
-
-  Widget _buildReviewsSection(ThemeData theme) {
-    final product = widget.product;
-    final isDark = theme.brightness == Brightness.dark;
-    final onSurface = theme.colorScheme.onSurface;
-    final primary = theme.primaryColor;
-    final warningColor = isDark
-        ? AppColors.darkWarning
-        : AppColors.lightWarning;
-    final reviews = product.reviews;
-    final reviewPreview = reviews.take(3).toList(growable: false);
-    final avgRating =
-        product.rating ??
-        (reviews.isEmpty
-            ? 0.0
-            : reviews.fold<double>(0, (s, r) => s + r.rating) / reviews.length);
-    final reviewCount = product.reviewCount ?? reviews.length;
-    final hiddenReviewCount = (reviewCount - reviewPreview.length).clamp(
-      0,
-      9999,
-    );
-
-    return Column(
-      key: _reviewsKey,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header row
-        Row(
-          children: [
-            Text(
-              'Customer Reviews',
-              style: AppTextStyles.bodyLarge.copyWith(
-                fontWeight: FontWeight.w700,
-                color: onSurface,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: warningColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star_rounded, size: 15, color: warningColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    avgRating.toStringAsFixed(1),
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '($reviewCount)',
-                    style: AppTextStyles.caption.copyWith(
-                      color: onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (reviews.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              'No reviews available for this product yet.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-        if (reviews.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              reviewCount <= 3
-                  ? 'Showing all customer feedback'
-                  : 'Showing the latest 3 of $reviewCount reviews',
-              style: AppTextStyles.caption.copyWith(
-                color: onSurface.withValues(alpha: 0.52),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        // Individual review cards
-        ...reviewPreview.map(
-          (r) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: ReviewCard(entry: r),
-          ),
-        ),
-        if (reviews.length > 3)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _ReviewCtaCard(
-              hiddenReviewCount: hiddenReviewCount,
-              primary: primary,
-              onSurface: onSurface,
-              onTap: _showAllReviews,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _ReviewCtaCard extends StatelessWidget {
-  final int hiddenReviewCount;
-  final Color primary;
-  final Color onSurface;
-  final VoidCallback onTap;
-
-  const _ReviewCtaCard({
-    required this.hiddenReviewCount,
-    required this.primary,
-    required this.onSurface,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: primary.withValues(alpha: 0.16)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.reviews_outlined, size: 18, color: primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'See all reviews',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: primary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Read $hiddenReviewCount more ${hiddenReviewCount == 1 ? 'review' : 'reviews'} from customers',
-                      style: AppTextStyles.caption.copyWith(
-                        color: onSurface.withValues(alpha: 0.58),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 20, color: primary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1140,7 +762,6 @@ class _ImageGallery extends StatelessWidget {
   final bool sharePulse;
   final VoidCallback onShareTap;
   final String? discountTag;
-  final bool showFastDelivery;
   final double aspectRatio;
 
   const _ImageGallery({
@@ -1155,7 +776,6 @@ class _ImageGallery extends StatelessWidget {
     required this.sharePulse,
     required this.onShareTap,
     required this.discountTag,
-    required this.showFastDelivery,
     this.aspectRatio = 0.95,
   });
 
@@ -1165,7 +785,6 @@ class _ImageGallery extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final onSurface = theme.colorScheme.onSurface;
     final discountBase = isDark ? AppColors.darkError : AppColors.lightError;
-    final successBase = isDark ? AppColors.darkSuccess : AppColors.lightSuccess;
     final urls = imageUrls.isEmpty ? const <String>[] : imageUrls;
 
     return Padding(
@@ -1302,44 +921,10 @@ class _ImageGallery extends StatelessWidget {
 
                       const Spacer(),
 
-                      // ── Bottom: fast delivery + dots ──
+                      // ── Bottom: dots ──
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (showFastDelivery)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surface.withValues(
-                                  alpha: 0.9,
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: successBase.withValues(alpha: 0.4),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.bolt_rounded,
-                                    size: 14,
-                                    color: successBase,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'Fast Delivery',
-                                    style: AppTextStyles.caption.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: successBase,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           const Spacer(),
                           if (urls.length > 1)
                             _DotIndicator(
@@ -1573,8 +1158,10 @@ class _StatusPill extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _ProductDetailsTable extends StatelessWidget {
-  final ProductModel product;
   final String? categoryLabel;
+  final String? sku;
+  final String? weight;
+  final String? attributes;
   final int? stockLeft;
   final bool outOfStock;
   final Color dividerColor;
@@ -1583,8 +1170,10 @@ class _ProductDetailsTable extends StatelessWidget {
   final Color errorColor;
 
   const _ProductDetailsTable({
-    required this.product,
     this.categoryLabel,
+    this.sku,
+    this.weight,
+    this.attributes,
     this.stockLeft,
     required this.outOfStock,
     required this.dividerColor,
@@ -1595,18 +1184,20 @@ class _ProductDetailsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = [
-      _TableEntry('Category', categoryLabel ?? product.category.displayName),
-      _TableEntry('Pack Size', '1 unit'),
-      _TableEntry('Origin', 'Locally sourced'),
+    final rows = <_TableEntry>[
+      if ((categoryLabel ?? '').trim().isNotEmpty)
+        _TableEntry('Category', categoryLabel!.trim()),
+      if ((sku ?? '').trim().isNotEmpty) _TableEntry('SKU', sku!.trim()),
+      if ((weight ?? '').trim().isNotEmpty)
+        _TableEntry('Weight', weight!.trim()),
+      if ((attributes ?? '').trim().isNotEmpty)
+        _TableEntry('Attributes', attributes!.trim()),
       if (stockLeft != null)
         _TableEntry(
           'Availability',
           outOfStock ? 'Out of stock' : '$stockLeft units available',
           valueColor: outOfStock ? errorColor : successColor,
         ),
-      if (product.isFastDelivery == true)
-        _TableEntry('Delivery', 'Fast Delivery'),
     ];
 
     return Column(

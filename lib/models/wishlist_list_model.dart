@@ -5,17 +5,38 @@ class Wishlistlist {
   Wishlistlist({this.success, this.data});
 
   Wishlistlist.fromJson(Map<String, dynamic> json) {
-    success = _asBool(json['success']);
-    data = json['data'] != null ? WishlistData.fromJson(json['data']) : null;
+    success = _asBool(json['success']) ?? true;
+    
+    final rawData = json['data'];
+    if (rawData != null) {
+      if (rawData is Map<String, dynamic>) {
+        data = WishlistData.fromJson(rawData);
+      } else if (rawData is List) {
+        data = WishlistData(
+          items: rawData
+              .map((v) => WishlistItem.fromJson(v as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+    } else {
+      final alternativeItems = json['items'] ?? json['wishlist_items'] ?? json['wishlist'];
+      if (alternativeItems is List) {
+        data = WishlistData(
+          items: alternativeItems
+              .map((v) => WishlistItem.fromJson(v as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['success'] = success;
-    if (this.data != null) {
-      data['data'] = this.data!.toJson();
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['success'] = success;
+    if (data != null) {
+      out['data'] = data!.toJson();
     }
-    return data;
+    return out;
   }
 }
 
@@ -27,26 +48,31 @@ class WishlistData {
   WishlistData({this.userId, this.items, this.totalItems});
 
   WishlistData.fromJson(Map<String, dynamic> json) {
-    userId = json['user_id'];
-    if (json['items'] != null) {
+    userId = _toInt(json['user_id'] ?? json['userId']);
+    
+    final itemsJson = json['items'] ?? json['wishlist_items'] ?? json['products'] ?? json['data'];
+    if (itemsJson is List) {
       items = <WishlistItem>[];
-      json['items'].forEach((v) {
-        items!.add(WishlistItem.fromJson(v));
-      });
+      for (final v in itemsJson) {
+        if (v is Map<String, dynamic>) {
+          items!.add(WishlistItem.fromJson(v));
+        }
+      }
     } else {
       items = <WishlistItem>[];
     }
-    totalItems = json['total_items'];
+    
+    totalItems = _toInt(json['total_items'] ?? json['totalItems'] ?? json['total'] ?? json['count']);
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['user_id'] = userId;
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['user_id'] = userId;
     if (items != null) {
-      data['items'] = items!.map((v) => v.toJson()).toList();
+      out['items'] = items!.map((v) => v.toJson()).toList();
     }
-    data['total_items'] = totalItems;
-    return data;
+    out['total_items'] = totalItems;
+    return out;
   }
 }
 
@@ -81,24 +107,64 @@ class WishlistItem {
   });
 
   WishlistItem.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
-    productId = json['product_id'];
-    createdAt = json['created_at'];
-    name = json['name'];
-    price = json['price'];
-    images = json['images'];
-    sku = json['sku'];
+    id = _toInt(json['id'] ?? json['wishlist_item_id'] ?? json['item_id']);
+    
+    productId = _toInt(
+      json['product_id'] ??
+      json['productId'] ??
+      (json['product'] is Map ? (json['product'] as Map)['id'] : null) ??
+      json['id']
+    );
+    
+    createdAt = (json['created_at'] ?? '').toString();
+    
+    name = (
+      json['name'] ??
+      json['product_name'] ??
+      json['title'] ??
+      (json['product'] is Map ? (json['product'] as Map)['name'] ?? (json['product'] as Map)['title'] : null) ??
+      ''
+    ).toString().trim();
+    
+    price = (
+      json['price'] ??
+      json['unit_price'] ??
+      (json['product'] is Map ? (json['product'] as Map)['price'] : null) ??
+      ''
+    ).toString();
+    
+    final imgVal = json['images'] ??
+        json['image'] ??
+        json['product_image'] ??
+        (json['product'] is Map ? (json['product'] as Map)['images'] ?? (json['product'] as Map)['image'] : null);
+    if (imgVal is List && imgVal.isNotEmpty) {
+      images = imgVal.first.toString();
+    } else {
+      images = imgVal?.toString();
+    }
+    
+    sku = (
+      json['sku'] ??
+      (json['product'] is Map ? (json['product'] as Map)['sku'] : null) ??
+      ''
+    ).toString();
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['id'] = id;
-    data['product_id'] = productId;
-    data['created_at'] = createdAt;
-    data['name'] = name;
-    data['price'] = price;
-    data['images'] = images;
-    data['sku'] = sku;
-    return data;
+    final Map<String, dynamic> out = <String, dynamic>{};
+    out['id'] = id;
+    out['product_id'] = productId;
+    out['created_at'] = createdAt;
+    out['name'] = name;
+    out['price'] = price;
+    out['images'] = images;
+    out['sku'] = sku;
+    return out;
   }
+}
+
+int? _toInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }

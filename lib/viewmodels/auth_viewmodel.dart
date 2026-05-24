@@ -1,4 +1,5 @@
 import '../data/models/auth_user_model.dart';
+import '../data/models/verify_login_otp_response_model.dart';
 import '../data/remote/auth/auth_api_service.dart';
 import '../data/remote/network/api_exception.dart';
 import '../core/auth/auth_coordinator.dart';
@@ -134,6 +135,67 @@ class AuthViewModel {
     }
   }
 
+  /// Verifies registration OTP and stores returned user payload if available.
+  Future<VerifyOtpResult> verifyRegister({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final response = await _authApiService.verifyRegister(
+        email: email,
+        otp: code,
+      );
+
+      final success = response['success'] == true || response['success'] == 'true';
+      _lastAuthMessage = response['message']?.toString();
+
+      if (success) {
+        // Registration verified successfully.
+        // Check if the backend also returned token/user login payload directly:
+        final userModel = VerifyLoginOtpResponseModel.fromJson(response);
+        final token = (userModel.token ?? userModel.user?.token ?? '').trim();
+        final resolvedUserId = int.tryParse(userModel.user?.id ?? '');
+
+        if (token.isNotEmpty || resolvedUserId != null) {
+          _authenticatedUser = userModel.user;
+          if (token.isNotEmpty) {
+            await AuthCoordinator.instance.saveToken(token);
+          }
+          await AuthCoordinator.instance.setLoggedIn(true);
+          await AuthCoordinator.instance.setUserSession(
+            userId: resolvedUserId,
+            token: token.isNotEmpty ? token : userModel.user?.token,
+            name: userModel.user?.name,
+            email: userModel.user?.email,
+          );
+        }
+
+        return VerifyOtpResult(
+          status: VerifyOtpStatus.success,
+          message: _lastAuthMessage ?? 'Registration verified successfully.',
+          user: userModel.user,
+        );
+      }
+
+      return VerifyOtpResult(
+        status: VerifyOtpStatus.failed,
+        message: _lastAuthMessage ?? 'Invalid OTP. Please try again.',
+      );
+    } on ApiException catch (error) {
+      _lastAuthMessage = error.message;
+      return VerifyOtpResult(
+        status: VerifyOtpStatus.failed,
+        message: _lastAuthMessage,
+      );
+    } catch (_) {
+      _lastAuthMessage = 'OTP verification failed. Please try again.';
+      return VerifyOtpResult(
+        status: VerifyOtpStatus.failed,
+        message: _lastAuthMessage,
+      );
+    }
+  }
+
   /// Verifies login OTP and stores returned user payload in memory.
   Future<VerifyOtpResult> verifyOtp({
     required String email,
@@ -211,12 +273,13 @@ class AuthViewModel {
 
       _lastAuthMessage = response.message;
 
-      final normalizedEmail = email.trim().toLowerCase();
       final normalizedMessage = (response.message ?? '').toLowerCase();
 
-      if (normalizedEmail == 'sayanbanikcob@gmail.com' ||
-          normalizedMessage.contains('already registered')) {
-        _lastAuthMessage = 'This email is already registered. Please log in.';
+      if (response.success == false &&
+          (normalizedMessage.contains('already') ||
+           normalizedMessage.contains('exists') ||
+           normalizedMessage.contains('taken'))) {
+        _lastAuthMessage = response.message ?? 'This email is already registered. Please log in.';
         return RegisterResult(
           status: RegisterStatus.alreadyRegistered,
           message: _lastAuthMessage,
@@ -235,9 +298,14 @@ class AuthViewModel {
         message: _lastAuthMessage ?? 'Registration failed. Please try again.',
       );
     } on ApiException catch (error) {
-      _lastAuthMessage = error.message;
+      final bodyText = (error.responseBody ?? '').toLowerCase();
+      final messageText = error.message.toLowerCase();
+      final normalizedMsg = '$bodyText $messageText';
 
-      if (email.trim().toLowerCase() == 'sayanbanikcob@gmail.com') {
+      if (normalizedMsg.contains('already registered') ||
+          normalizedMsg.contains('already exists') ||
+          normalizedMsg.contains('exists') ||
+          normalizedMsg.contains('taken')) {
         _lastAuthMessage = 'This email is already registered. Please log in.';
         return RegisterResult(
           status: RegisterStatus.alreadyRegistered,
@@ -245,6 +313,7 @@ class AuthViewModel {
         );
       }
 
+      _lastAuthMessage = error.message;
       return RegisterResult(
         status: RegisterStatus.failed,
         message: _lastAuthMessage,
