@@ -6,6 +6,7 @@ import '../../common/cards/product_grid_card.dart';
 import '../../common/pages/no_internet_page.dart';
 import '../../core/network/network_error_utils.dart';
 import '../../models/categories_model.dart';
+import '../../models/global_search_model.dart';
 import '../../models/product_list_model.dart';
 import '../../core/product_listing/product_listing_coordinator.dart';
 import '../../core/tobacco/tobacco_access_coordinator.dart';
@@ -71,6 +72,14 @@ class _HomeViewState extends State<HomeView> {
   List<ProductModel> _apiProducts = const <ProductModel>[];
   String? _selectedCategoryName;
 
+  String _searchQuery = '';
+  bool _searchLoading = false;
+  String? _searchError;
+  String? _searchDidYouMean;
+  List<String> _searchSuggestions = const <String>[];
+  List<ProductModel> _searchResults = const <ProductModel>[];
+  int _searchToken = 0;
+
   @override
   void initState() {
     super.initState();
@@ -126,6 +135,105 @@ class _HomeViewState extends State<HomeView> {
   Future<void> _retryHomeLoad() async {
     setState(() => _retryCount++);
     await _loadDynamicHomeData();
+  }
+
+  bool get _isSearchMode => _searchQuery.trim().isNotEmpty;
+
+  Future<void> _onSearchChanged(String query) async {
+    final normalized = query.trim();
+    final token = ++_searchToken;
+
+    if (normalized.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = '';
+        _searchLoading = false;
+        _searchError = null;
+        _searchDidYouMean = null;
+        _searchSuggestions = const <String>[];
+        _searchResults = const <ProductModel>[];
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _searchQuery = normalized;
+      _searchLoading = true;
+      _searchError = null;
+      _searchDidYouMean = null;
+      _searchSuggestions = const <String>[];
+    });
+
+    try {
+      final response = await _apiService.getGlobalSearch(query: normalized);
+      if (!mounted || token != _searchToken) return;
+
+      final results =
+          (response.data?.mergedProductResults ?? const <GlobalSearchItem>[])
+              .asMap()
+              .entries
+              .map((entry) => _mapGlobalSearchProduct(entry.value, entry.key))
+              .where((e) => e != null)
+              .cast<ProductModel>()
+              .toList(growable: false);
+
+      setState(() {
+        _searchLoading = false;
+        _searchError = response.success == true ? null : response.message;
+        _searchDidYouMean = (response.didYouMean ?? '').trim().isEmpty
+            ? null
+            : response.didYouMean!.trim();
+        _searchSuggestions = response.data?.suggestions ?? const <String>[];
+        _searchResults = results;
+      });
+    } catch (e) {
+      if (!mounted || token != _searchToken) return;
+      setState(() {
+        _searchLoading = false;
+        _searchError = e.toString();
+        _searchResults = const <ProductModel>[];
+      });
+    }
+  }
+
+  ProductModel? _mapGlobalSearchProduct(GlobalSearchItem item, int index) {
+    final id = item.id?.toString().trim() ?? '';
+    final name = (item.name ?? '').trim();
+    if (id.isEmpty || name.isEmpty) {
+      return null;
+    }
+
+    final basePrice = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    final discount = double.tryParse((item.discountPrice ?? '').trim());
+
+    double finalPrice = basePrice;
+    double? originalPrice;
+    if (discount != null && discount > 0 && discount < basePrice) {
+      finalPrice = discount;
+      originalPrice = basePrice;
+    }
+
+    final rawImage = (item.images ?? '').trim();
+    final imageUrl = rawImage.isEmpty
+        ? ''
+        : _apiService.resolveImageUrl(rawImage.split(',').first.trim());
+
+    return ProductModel(
+      id: id,
+      category: _categoryFromApiName(item.categoryName),
+      name: name,
+      imageUrl: imageUrl,
+      price: finalPrice,
+      originalPrice: originalPrice,
+      discountTag: null,
+      rating: null,
+      reviewCount: null,
+      reviews: const [],
+      stockLeft: item.stockQuantity ?? item.stock,
+      isFastDelivery: null,
+      isBestSeller: null,
+    );
   }
 
   ProductModel _mapApiProduct(ProductItemModel item, int index) {
@@ -295,200 +403,329 @@ class _HomeViewState extends State<HomeView> {
                 'drinks...',
                 'dairy...',
               ],
-              onSearchChanged: (val) => debugPrint('Searching: $val'),
+              onSearchChanged: _onSearchChanged,
               currentBottomBarIndex: 0,
             ),
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  if (hasInitialNetworkFailure)
-                    SizedBox(
-                      height: MediaQuery.sizeOf(context).height * 0.75,
-                      child: NoInternetPage(
-                        retryCount: _retryCount,
-                        onRetry: () {
-                          _retryHomeLoad();
-                        },
+            if (_isSearchMode)
+              SliverToBoxAdapter(child: _buildSearchResults(theme))
+            else ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    if (hasInitialNetworkFailure)
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.75,
+                        child: NoInternetPage(
+                          retryCount: _retryCount,
+                          onRetry: () {
+                            _retryHomeLoad();
+                          },
+                        ),
+                      )
+                    else ...[
+                      const SizedBox(height: 16),
+                      // Promo Carousel
+                      EcommercePromoCarousel(
+                        imageUrls: _carouselImages,
+                        height: 180,
+                        onBannerTap: () => debugPrint('Banner Tapped'),
                       ),
-                    )
-                  else ...[
-                  const SizedBox(height: 16),
-                  // Promo Carousel
-                  EcommercePromoCarousel(
-                    imageUrls: _carouselImages,
-                    height: 180,
-                    onBannerTap: () => debugPrint('Banner Tapped'),
-                  ),
-                  const SizedBox(height: 24),
-                  if (_isLoadingDynamic)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  if (_dynamicError != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Material(
-                        color: theme.colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                color: theme.colorScheme.onErrorContainer,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Failed to refresh categories/products. Showing available items.',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onErrorContainer,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                      const SizedBox(height: 24),
+                      if (_isLoadingDynamic)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  // Categories View
-                  if (_apiCategories.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(18),
+                      if (_dynamicError != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Material(
+                            color: theme.colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(14),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: theme.colorScheme.onErrorContainer,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Failed to refresh categories/products. Showing available items.',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onErrorContainer,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                        child: Text(
-                          'No categories available right now.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                    )
-                  else
-                    EcommerceCategoryRow(categories: _buildCategoryItems()),
-                  const SizedBox(height: 16),
-                  ],
-                ],
-              ),
-            ),
-
-            // Infinite Section Builder
-            if (!hasInitialNetworkFailure)
-              SliverList.builder(
-              itemBuilder: (context, index) {
-                if (index % 2 == 0) {
-                  // Return a product list section
-                  final sectionIndex = index ~/ 2;
-                  final title =
-                      _sectionTitles[sectionIndex % _sectionTitles.length];
-                  final products = _generateProducts(sectionIndex);
-
-                  return Column(
-                    children: [
-                      EcommerceSectionTitle(
-                        title: title,
-                        onActionTap: () {
-                          ProductListingCoordinator.instance.openListing(
-                            context,
-                            category: _categoryForSectionTitle(title),
-                            currentBottomBarIndex: 0,
-                          );
-                        },
-                      ),
-                      if (products.isEmpty)
+                      const SizedBox(height: 8),
+                      // Categories View
+                      if (_apiCategories.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.surfaceContainerHigh,
                               borderRadius: BorderRadius.circular(18),
                             ),
                             child: Text(
-                              'No products found for this category.',
+                              'No categories available right now.',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium,
                             ),
                           ),
                         )
                       else
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: products.length,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 12,
-                                  crossAxisSpacing: 12,
-                                  childAspectRatio: 0.58,
-                                ),
-                            itemBuilder: (context, i) {
-                              final product = products[i];
-                              return ProductGridCard(
-                                key: ValueKey(product.id),
-                                product: product,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    ProductDetailsView.route(
-                                      product: product,
-                                      currentBottomBarIndex: 0,
-                                    ),
-                                  );
-                                },
+                        EcommerceCategoryRow(categories: _buildCategoryItems()),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Infinite Section Builder
+              if (!hasInitialNetworkFailure)
+                SliverList.builder(
+                  itemBuilder: (context, index) {
+                    if (index % 2 == 0) {
+                      // Return a product list section
+                      final sectionIndex = index ~/ 2;
+                      final title =
+                          _sectionTitles[sectionIndex % _sectionTitles.length];
+                      final products = _generateProducts(sectionIndex);
+
+                      return Column(
+                        children: [
+                          EcommerceSectionTitle(
+                            title: title,
+                            onActionTap: () {
+                              ProductListingCoordinator.instance.openListing(
+                                context,
+                                category: _categoryForSectionTitle(title),
+                                currentBottomBarIndex: 0,
                               );
                             },
                           ),
-                        ),
-                      const SizedBox(height: 24),
-                    ],
-                  );
-                } else {
-                  // Return an offer banner
-                  final bannerIndex = index ~/ 2;
-                  final bannerImage =
-                      _bannerImages[bannerIndex % _bannerImages.length];
-                  final bannerTitle =
-                      _bannerTitles[bannerIndex % _bannerTitles.length];
-                  final bannerSubtitle =
-                      _bannerSubtitles[bannerIndex % _bannerSubtitles.length];
+                          if (products.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Text(
+                                  'No products found for this category.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: products.length,
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 12,
+                                      crossAxisSpacing: 12,
+                                      childAspectRatio: 0.58,
+                                    ),
+                                itemBuilder: (context, i) {
+                                  final product = products[i];
+                                  return ProductGridCard(
+                                    key: ValueKey(product.id),
+                                    product: product,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        ProductDetailsView.route(
+                                          product: product,
+                                          currentBottomBarIndex: 0,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    } else {
+                      // Return an offer banner
+                      final bannerIndex = index ~/ 2;
+                      final bannerImage =
+                          _bannerImages[bannerIndex % _bannerImages.length];
+                      final bannerTitle =
+                          _bannerTitles[bannerIndex % _bannerTitles.length];
+                      final bannerSubtitle =
+                          _bannerSubtitles[bannerIndex %
+                              _bannerSubtitles.length];
 
-                  return Column(
-                    children: [
-                      EcommerceOfferBanner(
-                        title: bannerTitle,
-                        subtitle: bannerSubtitle,
-                        imageUrl: bannerImage,
-                        onTap: () {},
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  );
-                }
-              },
-            ),
+                      return Column(
+                        children: [
+                          EcommerceOfferBanner(
+                            title: bannerTitle,
+                            subtitle: bannerSubtitle,
+                            imageUrl: bannerImage,
+                            onTap: () {},
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    }
+                  },
+                ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults(ThemeData theme) {
+    final onSurface = theme.colorScheme.onSurface;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Search results for "$_searchQuery"',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (_searchDidYouMean != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Did you mean: $_searchDidYouMean',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.primaryColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (_searchSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _searchSuggestions
+                  .map(
+                    (s) => Chip(
+                      label: Text(s),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (_searchLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: 18),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (_searchError != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _searchError!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          else if (_searchResults.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'No products found for this query.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: onSurface.withValues(alpha: 0.75),
+                ),
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _searchResults.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.58,
+              ),
+              itemBuilder: (context, i) {
+                final product = _searchResults[i];
+                return ProductGridCard(
+                  key: ValueKey(product.id),
+                  product: product,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      ProductDetailsView.route(
+                        product: product,
+                        currentBottomBarIndex: 0,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+        ],
       ),
     );
   }

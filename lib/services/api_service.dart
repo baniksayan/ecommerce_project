@@ -12,6 +12,7 @@ import '../models/cart_detail_model.dart';
 import '../models/cart_list_model.dart';
 import '../models/cart_remove_model.dart';
 import '../models/categories_model.dart';
+import '../models/global_search_model.dart';
 import '../models/manage_policies_model.dart';
 import '../models/policy_detail_model.dart';
 import '../models/policy_list_model.dart';
@@ -67,6 +68,30 @@ class ApiService {
       },
     );
     return Productdetails.fromJson(jsonMap);
+  }
+
+  Future<GlobalSearch> getGlobalSearch({required String query}) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      return GlobalSearch(
+        success: true,
+        message: 'Empty query',
+        query: normalized,
+        normalizedQuery: normalized,
+        data: GlobalSearchData(
+          products: const <GlobalSearchItem>[],
+          categories: const <GlobalSearchCategory>[],
+          suggestions: const <String>[],
+          related: const <GlobalSearchItem>[],
+        ),
+      );
+    }
+
+    final jsonMap = await _get(
+      'search/global.php',
+      queryParameters: <String, String>{'q': normalized},
+    );
+    return GlobalSearch.fromJson(jsonMap);
   }
 
   Future<ListPolicies> getPolicies() async {

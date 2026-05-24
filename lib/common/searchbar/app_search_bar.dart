@@ -46,6 +46,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
   String? _typewriterTarget;
   int _typewriterCharIndex = 0;
   bool _typewriterDeleting = false;
+  bool _hasText = false;
 
   @override
   void initState() {
@@ -56,28 +57,74 @@ class _AppSearchBarState extends State<AppSearchBar> {
     if (initial != null && initial.trim().isNotEmpty) {
       _controller.text = initial;
     }
+    _hasText = _controller.text.isNotEmpty;
 
     if (widget.animatedHints != null && widget.animatedHints!.isNotEmpty) {
       _startTypewriter();
     }
 
     _focusNode.addListener(() {
+      final isInteracting = _focusNode.hasFocus || _controller.text.isNotEmpty;
+      if (isInteracting) {
+        _stopTypewriter();
+      } else {
+        _resumeTypewriterIfNeeded();
+      }
+
       if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
-        setState(() {
-          _currentHintText = widget.hintText;
-        });
+        if (_currentHintText != widget.hintText) {
+          setState(() {
+            _currentHintText = widget.hintText;
+          });
+        }
       }
     });
 
     _controller.addListener(() {
-      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+      final nextHasText = _controller.text.isNotEmpty;
+      if (nextHasText != _hasText && mounted) {
         setState(() {
-          _currentHintText = widget.hintText;
+          _hasText = nextHasText;
         });
+      } else {
+        _hasText = nextHasText;
       }
-      // Rebuild to show/hide suffixIcon correctly based on text emptiness
-      setState(() {});
+
+      final isInteracting = _focusNode.hasFocus || nextHasText;
+      if (isInteracting) {
+        _stopTypewriter();
+      } else {
+        _resumeTypewriterIfNeeded();
+      }
+
+      if (_focusNode.hasFocus || _controller.text.isNotEmpty) {
+        if (_currentHintText != widget.hintText && mounted) {
+          setState(() {
+            _currentHintText = widget.hintText;
+          });
+        }
+      }
     });
+  }
+
+  void _stopTypewriter() {
+    _isTypingActive = false;
+    _typewriterTimer?.cancel();
+  }
+
+  void _resumeTypewriterIfNeeded() {
+    if (!_focusNode.hasFocus && _controller.text.isEmpty) {
+      final hints = widget.animatedHints;
+      if (hints != null && hints.isNotEmpty) {
+        _startTypewriter();
+      }
+    }
+  }
+
+  void _dismissFocus() {
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
   }
 
   void _startTypewriter() {
@@ -190,48 +237,53 @@ class _AppSearchBarState extends State<AppSearchBar> {
     final theme = Theme.of(context);
 
     if (PlatformHelper.isIOS) {
-      return CupertinoSearchTextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        placeholder: _currentHintText.isEmpty
-            ? (widget.animatedHints?.first ?? widget.hintText)
-            : _currentHintText,
-        autofocus: widget.autofocus,
-        onChanged: _onSearchChanged,
-        onSubmitted: widget.onSubmitted ?? widget.onChanged,
-        style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+      return TapRegion(
+        onTapOutside: (_) => _dismissFocus(),
+        child: CupertinoSearchTextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          placeholder: _currentHintText.isEmpty
+              ? (widget.animatedHints?.first ?? widget.hintText)
+              : _currentHintText,
+          autofocus: widget.autofocus,
+          onChanged: _onSearchChanged,
+          onSubmitted: widget.onSubmitted ?? widget.onChanged,
+          style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+        ),
       );
     } else {
-      return TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        autofocus: widget.autofocus,
-        onChanged: _onSearchChanged,
-        onSubmitted: widget.onSubmitted,
-        decoration: InputDecoration(
-          hintText: _currentHintText.isEmpty
-              ? '\u200B'
-              : _currentHintText, // Zero-width space to keep height steady
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _controller.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _controller.clear();
-                    _onSearchChanged('');
-                    FocusScope.of(context).unfocus();
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: theme.colorScheme.surface,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 0,
-            horizontal: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide.none,
+      return TapRegion(
+        onTapOutside: (_) => _dismissFocus(),
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: widget.autofocus,
+          onChanged: _onSearchChanged,
+          onSubmitted: widget.onSubmitted,
+          decoration: InputDecoration(
+            hintText: _currentHintText.isEmpty
+                ? '\u200B'
+                : _currentHintText, // Zero-width space to keep height steady
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _hasText
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _controller.clear();
+                      _onSearchChanged('');
+                    },
+                  )
+                : null,
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 0,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       );
