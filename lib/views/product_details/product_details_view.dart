@@ -26,6 +26,7 @@ import '../cart/cart_view.dart';
 import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_listing/product_listing_view.dart';
+import 'reviews_view.dart';
 import 'widgets/product_details_skeleton.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
@@ -555,6 +556,48 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
             ),
             const SizedBox(height: 16),
           ],
+
+          AppCard.action(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AllReviewsView(product: widget.product),
+                ),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ratings & Reviews',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Read customer feedback or write your own review.',
+                        style: AppTextStyles.caption.copyWith(
+                          color: onSurface.withValues(alpha: 0.66),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: onSurface.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
 
           // ── Expandable product details (table layout, expanded by default) ──
           if (_vm.hasProductDetailsTableData)

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../core/auth/auth_coordinator.dart';
 
 import '../models/cart_add_model.dart';
+import '../models/add_review_model.dart';
 import '../models/cart_clear_model.dart';
 import '../models/cart_detail_model.dart';
 import '../models/cart_list_model.dart';
@@ -14,6 +15,7 @@ import '../models/cart_remove_model.dart';
 import '../models/categories_model.dart';
 import '../models/global_search_model.dart';
 import '../models/manage_policies_model.dart';
+import '../models/list_review_model.dart';
 import '../models/policy_detail_model.dart';
 import '../models/policy_list_model.dart';
 import '../models/profile_model.dart';
@@ -68,6 +70,68 @@ class ApiService {
       },
     );
     return Productdetails.fromJson(jsonMap);
+  }
+
+  Future<ListReview> getReviewsList({required int productId}) async {
+    final jsonMap = await _get(
+      'reviews/list.php',
+      queryParameters: <String, String>{'product_id': productId.toString()},
+    );
+    return ListReview.fromJson(jsonMap);
+  }
+
+  Future<AddReview> addReview({
+    required int productId,
+    required int rating,
+    required String title,
+    required String comment,
+    int? userId,
+  }) async {
+    final resolvedUserId = _resolveUserId(userId);
+    final safeRating = rating.clamp(1, 5);
+    final cleanedTitle = title.trim();
+    final cleanedComment = comment.trim();
+
+    final jsonBody = <String, dynamic>{
+      'product_id': productId,
+      'rating': safeRating,
+      'title': cleanedTitle,
+      'comment': cleanedComment,
+      if (resolvedUserId != null) 'user_id': resolvedUserId,
+    };
+    final formBody = <String, String>{
+      'product_id': productId.toString(),
+      'rating': safeRating.toString(),
+      'title': cleanedTitle,
+      'comment': cleanedComment,
+      if (resolvedUserId != null) 'user_id': resolvedUserId.toString(),
+    };
+
+    try {
+      final jsonMap = await _post(
+        'reviews/add.php',
+        body: jsonBody,
+        withAuth: true,
+      );
+      return AddReview.fromJson(jsonMap);
+    } catch (_) {}
+
+    try {
+      final formMap = await _postForm(
+        'reviews/add.php',
+        body: formBody,
+        withAuth: true,
+      );
+      return AddReview.fromJson(formMap);
+    } catch (_) {}
+
+    final queryMap = await _post(
+      'reviews/add.php',
+      queryParameters: formBody,
+      body: const <String, dynamic>{},
+      withAuth: true,
+    );
+    return AddReview.fromJson(queryMap);
   }
 
   Future<GlobalSearch> getGlobalSearch({required String query}) async {
