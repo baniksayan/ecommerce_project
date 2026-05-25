@@ -14,6 +14,7 @@ import '../models/cart_list_model.dart';
 import '../models/cart_remove_model.dart';
 import '../models/categories_model.dart';
 import '../models/global_search_model.dart';
+import '../models/list_coupons_model.dart';
 import '../models/manage_policies_model.dart';
 import '../models/list_review_model.dart';
 import '../models/policy_detail_model.dart';
@@ -21,6 +22,7 @@ import '../models/policy_list_model.dart';
 import '../models/profile_model.dart';
 import '../models/product_details_model.dart';
 import '../models/product_list_model.dart';
+import '../models/update_coupon_model.dart';
 import '../models/wishlist_add_model.dart';
 import '../models/wishlist_list_model.dart';
 import '../models/wishlist_remove_model.dart';
@@ -161,6 +163,34 @@ class ApiService {
   Future<ListPolicies> getPolicies() async {
     final jsonMap = await _get('policies/list.php');
     return ListPolicies.fromJson(jsonMap);
+  }
+
+  Future<ListCoupons> getCouponsList() async {
+    final jsonMap = await _get('coupons/list.php');
+    return ListCoupons.fromJson(jsonMap);
+  }
+
+  Future<UpdateCoupon> updateCoupon({
+    required int id,
+    Map<String, dynamic>? payload,
+  }) async {
+    final query = <String, String>{'id': id.toString()};
+
+    try {
+      final jsonMap = await _put(
+        'coupons/manage.php',
+        queryParameters: query,
+        body: payload ?? const <String, dynamic>{},
+      );
+      return UpdateCoupon.fromJson(jsonMap);
+    } catch (_) {
+      final fallbackJson = await _post(
+        'coupons/manage.php',
+        queryParameters: query,
+        body: payload ?? const <String, dynamic>{},
+      );
+      return UpdateCoupon.fromJson(fallbackJson);
+    }
   }
 
   Future<PolicyDetail> getPolicyDetail({required String slug}) async {
