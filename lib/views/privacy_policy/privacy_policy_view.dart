@@ -220,6 +220,7 @@ class PrivacyPolicyView extends StatefulWidget {
 class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
   final ApiService _apiService = ApiService();
   final ScrollController _scrollController = ScrollController();
+  static const int _maxPolicySlugDebugPrints = 6;
   late Future<_PrivacyPolicyPayload> _policyFuture;
   double _scrollProgress = 0.0;
   int _retryCount = 0;
@@ -250,28 +251,58 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
   }
 
   Future<_PrivacyPolicyPayload> _loadPolicy() async {
-    final results = await Future.wait<dynamic>([
-      _apiService.getPolicyDetail(slug: 'privacy-policy'),
-      _apiService.getPolicies(),
-    ]);
+    debugPrint(
+      '[PrivacyPolicyView] _loadPolicy -> start (detail + ListPolicies APIs)',
+    );
+    try {
+      final results = await Future.wait<dynamic>([
+        _apiService.getPolicyDetail(slug: 'privacy-policy'),
+        _apiService.getPolicies(),
+      ]);
 
-    final detailResponse = results[0] as PolicyDetail;
-    final listResponse = results[1] as ListPolicies;
+      final detailResponse = results[0] as PolicyDetail;
+      final listResponse = results[1] as ListPolicies;
 
-    final detail = detailResponse.data;
-    if (detailResponse.success != true || detail == null) {
-      throw const ApiServiceException('Unable to load Privacy Policy.');
-    }
+      debugPrint(
+        '[PrivacyPolicyView] _loadPolicy <- ListPolicies '
+        'success=${listResponse.success} items=${listResponse.data?.length ?? 0}',
+      );
 
-    PolicyListItem? listItem;
-    for (final item in listResponse.data ?? const <PolicyListItem>[]) {
-      if ((item.slug ?? '').trim().toLowerCase() == 'privacy-policy') {
-        listItem = item;
-        break;
+      final detail = detailResponse.data;
+      if (detailResponse.success != true || detail == null) {
+        throw const ApiServiceException('Unable to load Privacy Policy.');
       }
-    }
 
-    return _PrivacyPolicyPayload(detail: detail, listItem: listItem);
+      PolicyListItem? listItem;
+      var printedPolicySlugCount = 0;
+      for (final item in listResponse.data ?? const <PolicyListItem>[]) {
+        if (printedPolicySlugCount < _maxPolicySlugDebugPrints) {
+          debugPrint('Checking policy list item: ${item.slug}');
+          printedPolicySlugCount += 1;
+        }
+        if ((item.slug ?? '').trim().toLowerCase() == 'privacy-policy') {
+          listItem = item;
+          break;
+        }
+      }
+
+      final totalPolicyItems = listResponse.data?.length ?? 0;
+      if (totalPolicyItems > _maxPolicySlugDebugPrints) {
+        debugPrint(
+          '[PrivacyPolicyView] policy slug debug logs limited to '
+          '$_maxPolicySlugDebugPrints of $totalPolicyItems items',
+        );
+      }
+
+      debugPrint(
+        '[PrivacyPolicyView] _loadPolicy -> matched list item '
+        'slug=${listItem?.slug ?? 'not-found'}',
+      );
+      return _PrivacyPolicyPayload(detail: detail, listItem: listItem);
+    } catch (e) {
+      debugPrint('[PrivacyPolicyView] _loadPolicy <- error: $e');
+      rethrow;
+    }
   }
 
   void _retryLoadPolicy() {

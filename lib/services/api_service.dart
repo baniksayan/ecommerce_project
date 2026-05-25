@@ -161,8 +161,19 @@ class ApiService {
   }
 
   Future<ListPolicies> getPolicies() async {
-    final jsonMap = await _get('policies/list.php');
-    return ListPolicies.fromJson(jsonMap);
+    debugPrint('[ApiService] getPolicies -> GET policies/list.php (start)');
+    try {
+      final jsonMap = await _get('policies/list.php');
+      final response = ListPolicies.fromJson(jsonMap);
+      debugPrint(
+        '[ApiService] getPolicies <- success=${response.success} '
+        'items=${response.data?.length ?? 0}',
+      );
+      return response;
+    } catch (e) {
+      debugPrint('[ApiService] getPolicies <- error: $e');
+      rethrow;
+    }
   }
 
   Future<ListCoupons> getCouponsList() async {
