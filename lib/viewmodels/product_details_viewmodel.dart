@@ -5,6 +5,7 @@ import '../data/models/product_model.dart';
 import '../data/models/wishlist_item_model.dart';
 import '../core/cart/cart_coordinator.dart';
 import '../core/network/network_error_utils.dart';
+import '../models/list_review_model.dart' as review_model;
 import '../models/product_list_model.dart';
 import '../data/repositories/cart_repository.dart';
 import '../data/repositories/wishlist_repository.dart';
@@ -52,6 +53,21 @@ class ProductDetailsViewModel extends BaseViewModel {
 
   String? _apiName;
   String? _apiDescription;
+  String? _apiShortDescription;
+  String? _apiBrand;
+  String? _apiUnitLabel;
+  bool? _apiCouponApplicable;
+  int? _apiDiscountPercentage;
+  bool? _apiInStock;
+  int? _apiMaxOrderQuantity;
+  int? _apiMinOrderQuantity;
+  String? _apiEstimatedDeliveryTime;
+  DateTime? _apiExpiryDate;
+  DateTime? _apiManufacturingDate;
+  String? _apiCountryOfOrigin;
+  String? _apiDeliveryType;
+  int? _apiDeliveryCharge;
+  bool? _apiFreeDelivery;
   String? _apiSku;
   String? _apiWeight;
   String? _apiAttributes;
@@ -59,6 +75,9 @@ class ProductDetailsViewModel extends BaseViewModel {
   double? _apiPrice;
   double? _apiOriginalPrice;
   int? _apiStockLeft;
+  double? _apiAverageRating;
+  int? _apiReviewCount;
+  List<review_model.Data> _apiReviews = const <review_model.Data>[];
 
   String get displayName =>
       (_apiName ?? '').trim().isNotEmpty ? _apiName!.trim() : product.name;
@@ -72,6 +91,32 @@ class ProductDetailsViewModel extends BaseViewModel {
       _apiOriginalPrice ?? product.originalPrice;
   int? get displayStockLeft => _apiStockLeft ?? product.stockLeft;
   String? get productDescription => _nonEmpty(_apiDescription);
+  String? get productShortDescription => _nonEmpty(_apiShortDescription);
+  String? get productBrand => _nonEmpty(_apiBrand);
+  String? get productUnitLabel => _nonEmpty(_apiUnitLabel);
+  bool? get productCouponApplicable => _apiCouponApplicable;
+  int? get productDiscountPercentage => _apiDiscountPercentage;
+  bool? get productInStock => _apiInStock;
+  int? get productMaxOrderQuantity => _apiMaxOrderQuantity;
+  int? get productMinOrderQuantity => _apiMinOrderQuantity;
+  String? get productEstimatedDeliveryTime =>
+      _nonEmpty(_apiEstimatedDeliveryTime);
+  DateTime? get productExpiryDate => _apiExpiryDate;
+  DateTime? get productManufacturingDate => _apiManufacturingDate;
+  String? get productCountryOfOrigin => _nonEmpty(_apiCountryOfOrigin);
+  String? get productDeliveryType => _nonEmpty(_apiDeliveryType);
+  int? get productDeliveryCharge => _apiDeliveryCharge;
+  bool? get productFreeDelivery => _apiFreeDelivery;
+  double? get reviewAverageRating => _apiAverageRating;
+  int get reviewCount => _apiReviewCount ?? _apiReviews.length;
+  List<review_model.Data> get topReviews =>
+      _apiReviews.take(3).toList(growable: false);
+  bool get hasReviewData =>
+      reviewAverageRating != null || reviewCount > 0 || _apiReviews.isNotEmpty;
+  List<int> get reviewDistribution => List<int>.generate(
+    5,
+    (i) => _apiReviews.where((r) => (r.rating ?? 0) == 5 - i).length,
+  );
   String? get displaySku => _nonEmpty(_apiSku);
   String? get displayWeight => _nonEmpty(_apiWeight);
   String? get displayAttributes => _nonEmpty(_apiAttributes);
@@ -82,7 +127,22 @@ class ProductDetailsViewModel extends BaseViewModel {
       displaySku != null ||
       displayWeight != null ||
       displayAttributes != null ||
-      displayStockLeft != null;
+      displayStockLeft != null ||
+      productShortDescription != null ||
+      productBrand != null ||
+      productUnitLabel != null ||
+      productCouponApplicable != null ||
+      productDiscountPercentage != null ||
+      productInStock != null ||
+      productMaxOrderQuantity != null ||
+      productMinOrderQuantity != null ||
+      productEstimatedDeliveryTime != null ||
+      productExpiryDate != null ||
+      productManufacturingDate != null ||
+      productCountryOfOrigin != null ||
+      productDeliveryType != null ||
+      productDeliveryCharge != null ||
+      productFreeDelivery != null;
 
   String? get displayDiscountTag {
     if (displayOriginalPrice != null && displayOriginalPrice! > displayPrice) {
@@ -163,6 +223,33 @@ class ProductDetailsViewModel extends BaseViewModel {
         if ((detailData.description ?? '').trim().isNotEmpty) {
           _apiDescription = detailData.description;
         }
+        if ((detailData.shortDescription ?? '').trim().isNotEmpty) {
+          _apiShortDescription = detailData.shortDescription;
+        }
+        if ((detailData.brand ?? '').trim().isNotEmpty) {
+          _apiBrand = detailData.brand;
+        }
+        if ((detailData.unitLabel ?? '').trim().isNotEmpty) {
+          _apiUnitLabel = detailData.unitLabel;
+        }
+        _apiCouponApplicable = detailData.couponApplicable;
+        _apiDiscountPercentage = detailData.discountPercentage;
+        _apiInStock = detailData.isInStock;
+        _apiMaxOrderQuantity = detailData.maxOrderQuantity;
+        _apiMinOrderQuantity = detailData.minOrderQuantity;
+        if ((detailData.estimatedDeliveryTime ?? '').trim().isNotEmpty) {
+          _apiEstimatedDeliveryTime = detailData.estimatedDeliveryTime;
+        }
+        _apiExpiryDate = detailData.expiryDate;
+        _apiManufacturingDate = detailData.manufacturingDate;
+        if ((detailData.countryOfOrigin ?? '').trim().isNotEmpty) {
+          _apiCountryOfOrigin = detailData.countryOfOrigin;
+        }
+        if ((detailData.deliveryType ?? '').trim().isNotEmpty) {
+          _apiDeliveryType = detailData.deliveryType;
+        }
+        _apiDeliveryCharge = detailData.deliveryCharge;
+        _apiFreeDelivery = detailData.freeDelivery;
 
         final base = double.tryParse(
           (detailData.price ?? '').toString().trim(),
@@ -182,6 +269,29 @@ class ProductDetailsViewModel extends BaseViewModel {
         }
 
         _apiStockLeft = detailData.stockQuantity ?? detailData.stock;
+      }
+
+      try {
+        final reviewResponse = await _apiService.getReviewsList(
+          productId: productId,
+        );
+        _apiAverageRating = reviewResponse.averageRating;
+        _apiReviewCount = reviewResponse.reviewCount;
+
+        final filtered = (reviewResponse.data ?? const <review_model.Data>[])
+            .where(_shouldRenderReview)
+            .toList(growable: true);
+
+        filtered.sort((a, b) {
+          final ratingCmp = (b.rating ?? 0).compareTo(a.rating ?? 0);
+          if (ratingCmp != 0) return ratingCmp;
+          return _safeReviewDate(b).compareTo(_safeReviewDate(a));
+        });
+        _apiReviews = filtered.toList(growable: false);
+      } catch (_) {
+        _apiAverageRating = null;
+        _apiReviewCount = null;
+        _apiReviews = const <review_model.Data>[];
       }
 
       final list = await _apiService.getProducts();
@@ -218,6 +328,20 @@ class ProductDetailsViewModel extends BaseViewModel {
       if (isNetworkError(e)) rethrow;
       // Preserve already-loaded API/list item data if detail hydration fails.
     }
+  }
+
+  bool _shouldRenderReview(review_model.Data review) {
+    final status = (review.status ?? '').trim().toLowerCase();
+    if (status.isEmpty) return true;
+    return status == 'approved' ||
+        status == 'active' ||
+        status == 'published' ||
+        status == '1';
+  }
+
+  DateTime _safeReviewDate(review_model.Data review) {
+    final parsed = DateTime.tryParse((review.createdAt ?? '').trim());
+    return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   ProductModel _mapApiProduct(ProductItemModel item, int index) {

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../common/pages/no_internet_page.dart';
 import '../core/network/network_error_utils.dart';
+import '../models/list_review_model.dart' as review_model;
 import '../models/product_details_model.dart';
 import '../services/api_service.dart';
+import 'product_details/widgets/review_display_widgets.dart';
 
 class ProductDetailView extends StatefulWidget {
   const ProductDetailView({super.key, required this.productId});
@@ -16,7 +18,7 @@ class ProductDetailView extends StatefulWidget {
 
 class _ProductDetailViewState extends State<ProductDetailView> {
   final ApiService _apiService = ApiService();
-  late Future<Productdetails> _detailsFuture;
+  late Future<_ProductDetailApiBundle> _detailsFuture;
 
   int _activeIndex = 0;
   int _retryCount = 0;
@@ -24,11 +26,28 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   @override
   void initState() {
     super.initState();
-    _detailsFuture = _apiService.getProductDetails(widget.productId);
+    _detailsFuture = _loadProductData();
+  }
+
+  Future<_ProductDetailApiBundle> _loadProductData() async {
+    final detailFuture = _apiService.getProductDetails(widget.productId);
+    final reviewFuture = _apiService.getReviewsList(productId: widget.productId);
+
+    final detail = await detailFuture;
+
+    // Reviews should not block product detail rendering if this endpoint fails.
+    review_model.ListReview? reviewResponse;
+    try {
+      reviewResponse = await reviewFuture;
+    } catch (_) {
+      reviewResponse = null;
+    }
+
+    return _ProductDetailApiBundle(details: detail, reviews: reviewResponse);
   }
 
   Future<void> _refresh() async {
-    final future = _apiService.getProductDetails(widget.productId);
+    final future = _loadProductData();
     setState(() => _detailsFuture = future);
     await future;
   }
@@ -42,7 +61,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Product Details')),
-      body: FutureBuilder<Productdetails>(
+      body: FutureBuilder<_ProductDetailApiBundle>(
         future: _detailsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -64,13 +83,29 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             );
           }
 
-          final details = snapshot.data?.data;
+          final payload = snapshot.data;
+          final details = payload?.details.data;
           if (details == null) {
             return _DetailErrorState(
               message: 'Product details not found.',
               onRetry: _refresh,
             );
           }
+
+          final averageRating = payload?.reviews?.averageRating;
+          final reviewCount = payload?.reviews?.reviewCount;
+            final allReviewEntries =
+              (payload?.reviews?.data ?? const <review_model.Data>[])
+                .where(_shouldRenderReview)
+                .map(_mapApiReview)
+                .toList(growable: false);
+            final sortedReviewEntries = _sortReviewsMostHelpful(allReviewEntries);
+            final previewReviews =
+              sortedReviewEntries.take(3).toList(growable: false);
+            final resolvedAverageRating =
+              averageRating ?? _avgFromReviews(allReviewEntries);
+            final resolvedReviewCount = reviewCount ?? allReviewEntries.length;
+            final ratingDistribution = _ratingDistribution(allReviewEntries);
 
           final images = (details.images ?? <String>[])
               .map(_apiService.resolveImageUrl)
@@ -98,6 +133,19 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
+                      if ((details.shortDescription ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          details.shortDescription!.trim(),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                height: 1.5,
+                              ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       _metaChip(
                         context,
@@ -134,11 +182,24 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      if (resolvedAverageRating != null ||
+                          resolvedReviewCount > 0)
+                        RatingSummaryCard(
+                          avgRating: resolvedAverageRating ?? 0.0,
+                          totalRatings: resolvedReviewCount,
+                          reviewCount: resolvedReviewCount,
+                          distribution: ratingDistribution,
+                        ),
+                      if (resolvedAverageRating != null ||
+                          resolvedReviewCount > 0)
+                        const SizedBox(height: 14),
                       _buildInfoRow('SKU', details.sku),
                       _buildInfoRow(
                         'Stock',
                         _stockText(details.stockQuantity, details.stock),
                       ),
+                      const SizedBox(height: 14),
+                      _buildProductMetaSection(context, details),
                       const SizedBox(height: 18),
                       Text(
                         'Description',
@@ -152,6 +213,20 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                             : details.description!.trim(),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
+                      if (previewReviews.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          'Top Reviews (Max 3)',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final review in previewReviews) ...[
+                          ReviewDisplayCard(entry: review),
+                          if (review != previewReviews.last)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -249,6 +324,234 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     );
   }
 
+  bool _shouldRenderReview(review_model.Data review) {
+    final status = (review.status ?? '').trim().toLowerCase();
+    if (status.isEmpty) return true;
+    return status == 'approved' ||
+        status == 'active' ||
+        status == 'published' ||
+        status == '1';
+  }
+
+  ReviewDisplayEntry _mapApiReview(review_model.Data review) {
+    final rating = (review.rating ?? 0).clamp(1, 5);
+    final title = (review.title ?? '').trim();
+    final comment = (review.comment ?? '').trim();
+    final body = [
+      if (title.isNotEmpty) title,
+      if (comment.isNotEmpty) comment,
+    ].join(' - ').trim();
+
+    return ReviewDisplayEntry(
+      id: review.id?.toString() ?? '',
+      name: (review.userName ?? '').trim().isEmpty
+          ? 'Anonymous User'
+          : review.userName!.trim(),
+      rating: rating,
+      text: body.isEmpty ? 'No review text provided.' : body,
+      title: title,
+      isVerified: true,
+      daysAgo: _daysAgoFromIso(review.createdAt),
+      createdAt: review.createdAt,
+    );
+  }
+
+  int _daysAgoFromIso(String? iso) {
+    if ((iso ?? '').trim().isEmpty) return 0;
+    final parsed = DateTime.tryParse(iso!.trim());
+    if (parsed == null) return 0;
+    final now = DateTime.now();
+    final diff = now.difference(parsed.toLocal()).inDays;
+    return diff < 0 ? 0 : diff;
+  }
+
+  List<ReviewDisplayEntry> _sortReviewsMostHelpful(
+    List<ReviewDisplayEntry> reviews,
+  ) {
+    final list = List<ReviewDisplayEntry>.from(reviews);
+    DateTime safeDate(ReviewDisplayEntry review) {
+      final parsed = DateTime.tryParse((review.createdAt ?? '').trim());
+      if (parsed != null) return parsed;
+      return DateTime.now().subtract(Duration(days: review.daysAgo));
+    }
+
+    list.sort((a, b) {
+      final ratingCmp = b.rating.compareTo(a.rating);
+      if (ratingCmp != 0) return ratingCmp;
+      return safeDate(b).compareTo(safeDate(a));
+    });
+    return list;
+  }
+
+  List<int> _ratingDistribution(List<ReviewDisplayEntry> reviews) {
+    return List<int>.generate(
+      5,
+      (i) => reviews.where((r) => r.rating == 5 - i).length,
+    );
+  }
+
+  double? _avgFromReviews(List<ReviewDisplayEntry> reviews) {
+    if (reviews.isEmpty) return null;
+    final total = reviews.fold<int>(0, (sum, rv) => sum + rv.rating);
+    return total / reviews.length;
+  }
+
+  Widget _buildProductMetaSection(BuildContext context, Data details) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
+
+    final chips = <Widget>[];
+    if (details.couponApplicable != null) {
+      chips.add(
+        _statusChip(
+          context,
+          details.couponApplicable == true
+              ? 'Coupon applicable'
+              : 'Coupon not applicable',
+          details.couponApplicable == true
+              ? primary
+              : onSurfaceVariant,
+        ),
+      );
+    }
+    if (details.isInStock != null) {
+      chips.add(
+        _statusChip(
+          context,
+          details.isInStock == true ? 'In stock' : 'Out of stock',
+          details.isInStock == true
+              ? Colors.green
+              : theme.colorScheme.error,
+        ),
+      );
+    }
+    if (details.freeDelivery != null) {
+      chips.add(
+        _statusChip(
+          context,
+          details.freeDelivery == true ? 'Free delivery' : 'Delivery charge applies',
+          details.freeDelivery == true
+              ? Colors.green
+              : onSurfaceVariant,
+        ),
+      );
+    }
+
+    final rows = <_MetaRow>[
+      if ((details.brand ?? '').trim().isNotEmpty)
+        _MetaRow('Brand', details.brand!.trim()),
+      if ((details.unitLabel ?? '').trim().isNotEmpty)
+        _MetaRow('Unit', details.unitLabel!.trim()),
+      if ((details.countryOfOrigin ?? '').trim().isNotEmpty)
+        _MetaRow('Country of origin', details.countryOfOrigin!.trim()),
+      if ((details.deliveryType ?? '').trim().isNotEmpty)
+        _MetaRow('Delivery type', details.deliveryType!.trim()),
+      if ((details.estimatedDeliveryTime ?? '').trim().isNotEmpty)
+        _MetaRow(
+          'Estimated delivery',
+          details.estimatedDeliveryTime!.trim(),
+        ),
+      if (details.discountPercentage != null)
+        _MetaRow(
+          'Discount',
+          '${details.discountPercentage}% off',
+        ),
+      if (details.deliveryCharge != null)
+        _MetaRow(
+          'Delivery charge',
+          'Rs ${details.deliveryCharge}',
+        ),
+      if (details.maxOrderQuantity != null)
+        _MetaRow(
+          'Max order',
+          '${details.maxOrderQuantity}',
+        ),
+      if (details.minOrderQuantity != null)
+        _MetaRow(
+          'Min order',
+          '${details.minOrderQuantity}',
+        ),
+      if (details.expiryDate != null)
+        _MetaRow('Expiry date', _formatDate(details.expiryDate)),
+      if (details.manufacturingDate != null)
+        _MetaRow('Manufactured on', _formatDate(details.manufacturingDate)),
+    ];
+
+    final rowWidgets = rows
+        .map(
+          (row) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 132,
+                  child: Text(
+                    row.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: onSurface.withValues(alpha: 0.68),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    row.value,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: row.valueColor ?? onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList(growable: false);
+
+    if (chips.isEmpty && rowWidgets.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Product Highlights',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: onSurface,
+            ),
+          ),
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: chips,
+            ),
+          ],
+          if (rowWidgets.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ...rowWidgets,
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _metaChip(BuildContext context, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -260,6 +563,24 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         value,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
           color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip(BuildContext context, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: color,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -279,6 +600,42 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     if (resolved <= 0) return 'Out of stock';
     return '$resolved available';
   }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+
+    const monthNames = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return '${monthNames[date.month - 1]} ${date.day}, ${date.year}';
+  }
+}
+
+class _MetaRow {
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _MetaRow(this.label, this.value, {this.valueColor});
+}
+
+class _ProductDetailApiBundle {
+  final Productdetails details;
+  final review_model.ListReview? reviews;
+
+  const _ProductDetailApiBundle({required this.details, required this.reviews});
 }
 
 class _DetailErrorState extends StatelessWidget {

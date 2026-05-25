@@ -1,27 +1,36 @@
 class Productdetails {
   bool? success;
-  ProductDetailData? data;
+  Data? data;
 
   Productdetails({this.success, this.data});
 
   Productdetails.fromJson(Map<String, dynamic> json) {
-    success = json['success'];
-    data = json['data'] != null
-        ? ProductDetailData.fromJson(json['data'])
-        : null;
+    success = _asBool(json['success']);
+    data = json['data'] != null ? Data.fromJson(json['data']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['success'] = success;
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['success'] = this.success;
     if (this.data != null) {
       data['data'] = this.data!.toJson();
     }
     return data;
   }
+
+  static bool? _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+
+    final text = value?.toString().trim().toLowerCase();
+    if (text == null || text.isEmpty) return null;
+    if (['true', '1', 'yes', 'y'].contains(text)) return true;
+    if (['false', '0', 'no', 'n'].contains(text)) return false;
+    return null;
+  }
 }
 
-class ProductDetailData {
+class Data {
   int? id;
   String? name;
   String? slug;
@@ -39,95 +48,179 @@ class ProductDetailData {
   int? stock;
   String? attributes;
   String? categoryName;
+  String? shortDescription;
+  String? brand;
+  String? unitLabel;
+  bool? couponApplicable;
+  int? discountPercentage;
+  bool? isInStock;
+  int? maxOrderQuantity;
+  int? minOrderQuantity;
+  String? estimatedDeliveryTime;
+  DateTime? expiryDate;
+  DateTime? manufacturingDate;
+  String? countryOfOrigin;
+  String? deliveryType;
+  int? deliveryCharge;
+  bool? freeDelivery;
 
-  ProductDetailData({
-    this.id,
-    this.name,
-    this.slug,
-    this.description,
-    this.price,
-    this.discountPrice,
-    this.sku,
-    this.stockQuantity,
-    this.categoryId,
-    this.images,
-    this.weight,
-    this.isActive,
-    this.createdAt,
-    this.updatedAt,
-    this.stock,
-    this.attributes,
-    this.categoryName,
-  });
+  Data(
+      {this.id,
+      this.name,
+      this.slug,
+      this.description,
+      this.price,
+      this.discountPrice,
+      this.sku,
+      this.stockQuantity,
+      this.categoryId,
+      this.images,
+      this.weight,
+      this.isActive,
+      this.createdAt,
+      this.updatedAt,
+      this.stock,
+      this.attributes,
+      this.categoryName,
+      this.shortDescription,
+      this.brand,
+      this.unitLabel,
+      this.couponApplicable,
+      this.discountPercentage,
+      this.isInStock,
+      this.maxOrderQuantity,
+      this.minOrderQuantity,
+      this.estimatedDeliveryTime,
+      this.expiryDate,
+      this.manufacturingDate,
+      this.countryOfOrigin,
+      this.deliveryType,
+      this.deliveryCharge,
+      this.freeDelivery});
 
-  ProductDetailData.fromJson(Map<String, dynamic> json) {
-    id = _asInt(json['id'] ?? json['product_id'] ?? json['productId']);
+  Data.fromJson(Map<String, dynamic> json) {
+    id = _asInt(json['id']);
     name = _asString(json['name']);
     slug = _asString(json['slug']);
     description = _asString(json['description']);
     price = _asString(json['price']);
-    discountPrice = _asString(json['discount_price']);
+    discountPrice = _asString(json['discount_price'] ?? json['discountPrice']);
     sku = _asString(json['sku']);
-    stockQuantity = _asInt(json['stock_quantity']);
-    categoryId = _asInt(json['category_id']);
-
-    final rawImages = json['images'];
-    if (rawImages is List) {
-      images = rawImages
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-    } else if (rawImages is String && rawImages.trim().isNotEmpty) {
-      images = rawImages
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-    } else {
-      images = <String>[];
-    }
-
+    stockQuantity = _asInt(json['stock_quantity'] ?? json['stockQuantity']);
+    categoryId = _asInt(json['category_id'] ?? json['categoryId']);
+    images = _asStringList(json['images']);
     weight = _asString(json['weight']);
-    isActive = _asInt(json['is_active']);
-    createdAt = _asString(json['created_at']);
-    updatedAt = _asString(json['updated_at']);
+    isActive = _asInt(json['is_active'] ?? json['isActive']);
+    createdAt = _asString(json['created_at'] ?? json['createdAt']);
+    updatedAt = _asString(json['updated_at'] ?? json['updatedAt']);
     stock = _asInt(json['stock']);
     attributes = _asString(json['attributes']);
-    categoryName = _asString(json['category_name']);
+    categoryName = _asString(json['category_name'] ?? json['categoryName']);
+    shortDescription = _asString(
+      json['short_description'] ?? json['shortDescription'],
+    );
+    brand = _asString(json['brand']);
+    unitLabel = _asString(json['unit_label'] ?? json['unitLabel']);
+    couponApplicable = _asBool(
+      json['coupon_applicable'] ?? json['couponApplicable'],
+    );
+    discountPercentage = _asInt(
+      json['discount_percentage'] ?? json['discountPercentage'],
+    );
+    isInStock = _asBool(json['is_in_stock'] ?? json['isInStock']);
+    maxOrderQuantity = _asInt(
+      json['max_order_quantity'] ?? json['maxOrderQuantity'],
+    );
+    minOrderQuantity = _asInt(
+      json['min_order_quantity'] ?? json['minOrderQuantity'],
+    );
+    estimatedDeliveryTime = _asString(
+      json['estimated_delivery_time'] ?? json['estimatedDeliveryTime'],
+    );
+    expiryDate = _asDateTime(json['expiry_date'] ?? json['expiryDate']);
+    manufacturingDate = _asDateTime(
+      json['manufacturing_date'] ?? json['manufacturingDate'],
+    );
+    countryOfOrigin = _asString(
+      json['country_of_origin'] ?? json['countryOfOrigin'],
+    );
+    deliveryType = _asString(json['delivery_type'] ?? json['deliveryType']);
+    deliveryCharge = _asInt(json['delivery_charge'] ?? json['deliveryCharge']);
+    freeDelivery = _asBool(json['free_delivery'] ?? json['freeDelivery']);
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['id'] = id;
-    data['name'] = name;
-    data['slug'] = slug;
-    data['description'] = description;
-    data['price'] = price;
-    data['discount_price'] = discountPrice;
-    data['sku'] = sku;
-    data['stock_quantity'] = stockQuantity;
-    data['category_id'] = categoryId;
-    data['images'] = images;
-    data['weight'] = weight;
-    data['is_active'] = isActive;
-    data['created_at'] = createdAt;
-    data['updated_at'] = updatedAt;
-    data['stock'] = stock;
-    data['attributes'] = attributes;
-    data['category_name'] = categoryName;
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['id'] = this.id;
+    data['name'] = this.name;
+    data['slug'] = this.slug;
+    data['description'] = this.description;
+    data['price'] = this.price;
+    data['discount_price'] = this.discountPrice;
+    data['sku'] = this.sku;
+    data['stock_quantity'] = this.stockQuantity;
+    data['category_id'] = this.categoryId;
+    data['images'] = this.images;
+    data['weight'] = this.weight;
+    data['is_active'] = this.isActive;
+    data['created_at'] = this.createdAt;
+    data['updated_at'] = this.updatedAt;
+    data['stock'] = this.stock;
+    data['attributes'] = this.attributes;
+    data['category_name'] = this.categoryName;
+    data['short_description'] = this.shortDescription;
+    data['brand'] = this.brand;
+    data['unit_label'] = this.unitLabel;
+    data['coupon_applicable'] = this.couponApplicable;
+    data['discount_percentage'] = this.discountPercentage;
+    data['is_in_stock'] = this.isInStock;
+    data['max_order_quantity'] = this.maxOrderQuantity;
+    data['min_order_quantity'] = this.minOrderQuantity;
+    data['estimated_delivery_time'] = this.estimatedDeliveryTime;
+    data['expiry_date'] =
+        this.expiryDate != null ? this.expiryDate!.toIso8601String() : null;
+    data['manufacturing_date'] = this.manufacturingDate != null
+        ? this.manufacturingDate!.toIso8601String()
+        : null;
+    data['country_of_origin'] = this.countryOfOrigin;
+    data['delivery_type'] = this.deliveryType;
+    data['delivery_charge'] = this.deliveryCharge;
+    data['free_delivery'] = this.freeDelivery;
     return data;
   }
-}
 
-int? _asInt(Object? value) {
-  if (value is int) return value;
-  return int.tryParse(value?.toString() ?? '');
-}
+  static String? _asString(Object? value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
 
-String? _asString(Object? value) {
-  final text = value?.toString().trim() ?? '';
-  if (text.isEmpty || text.toLowerCase() == 'null') {
+  static int? _asInt(Object? value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static bool? _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+
+    final text = value?.toString().trim().toLowerCase();
+    if (text == null || text.isEmpty) return null;
+    if (['true', '1', 'yes', 'y'].contains(text)) return true;
+    if (['false', '0', 'no', 'n'].contains(text)) return false;
     return null;
   }
-  return text;
+
+  static List<String>? _asStringList(Object? value) {
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return null;
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    final text = _asString(value);
+    if (text == null) return null;
+    return DateTime.tryParse(text);
+  }
 }

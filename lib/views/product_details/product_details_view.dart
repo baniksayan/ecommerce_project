@@ -19,6 +19,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_currency.dart';
 import '../../core/utils/platform_helper.dart';
 import '../../data/models/product_model.dart';
+import '../../models/list_review_model.dart' as review_model;
 import '../../data/repositories/hive_cart_repository.dart';
 import '../../data/repositories/hive_wishlist_repository.dart';
 import '../../viewmodels/product_details_viewmodel.dart';
@@ -27,6 +28,7 @@ import '../home/home_widgets.dart';
 import '../main/main_view.dart';
 import '../product_listing/product_listing_view.dart';
 import 'reviews_view.dart';
+import 'widgets/review_display_widgets.dart';
 import 'widgets/product_details_skeleton.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
@@ -597,6 +599,31 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
             ),
           ),
 
+          if (_vm.hasReviewData) ...[
+            const SizedBox(height: 14),
+            RatingSummaryCard(
+              avgRating: _vm.reviewAverageRating ?? 0.0,
+              totalRatings: _vm.reviewCount,
+              reviewCount: _vm.reviewCount,
+              distribution: _vm.reviewDistribution,
+            ),
+            if (_vm.topReviews.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Top Reviews',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: onSurface,
+                ),
+              ),
+              const SizedBox(height: 10),
+              for (int i = 0; i < _vm.topReviews.length; i++) ...[
+                ReviewDisplayCard(entry: _mapApiReview(_vm.topReviews[i])),
+                if (i < _vm.topReviews.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          ],
+
           const SizedBox(height: 14),
 
           // ── Expandable product details (table layout, expanded by default) ──
@@ -636,8 +663,24 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
                     secondChild: Padding(
                       padding: const EdgeInsets.only(top: 14),
                       child: _ProductDetailsTable(
+                        shortDescription: _vm.productShortDescription,
                         categoryLabel: _vm.displayCategoryLabel,
+                        brand: _vm.productBrand,
+                        unitLabel: _vm.productUnitLabel,
+                        couponApplicable: _vm.productCouponApplicable,
+                        discountPercentage: _vm.productDiscountPercentage,
+                        inStock: _vm.productInStock,
                         sku: _vm.displaySku,
+                        maxOrderQuantity: _vm.productMaxOrderQuantity,
+                        minOrderQuantity: _vm.productMinOrderQuantity,
+                        estimatedDeliveryTime:
+                            _vm.productEstimatedDeliveryTime,
+                        expiryDate: _vm.productExpiryDate,
+                        manufacturingDate: _vm.productManufacturingDate,
+                        countryOfOrigin: _vm.productCountryOfOrigin,
+                        deliveryType: _vm.productDeliveryType,
+                        deliveryCharge: _vm.productDeliveryCharge,
+                        freeDelivery: _vm.productFreeDelivery,
                         weight: _vm.displayWeight,
                         attributes: _vm.displayAttributes,
                         stockLeft: stockLeft,
@@ -662,6 +705,38 @@ class _ProductDetailsViewState extends State<ProductDetailsView>
         ],
       ),
     );
+  }
+
+  ReviewDisplayEntry _mapApiReview(review_model.Data review) {
+    final rating = (review.rating ?? 0).clamp(1, 5);
+    final title = (review.title ?? '').trim();
+    final comment = (review.comment ?? '').trim();
+    final body = [
+      if (title.isNotEmpty) title,
+      if (comment.isNotEmpty) comment,
+    ].join(' - ').trim();
+
+    return ReviewDisplayEntry(
+      id: review.id?.toString() ?? '',
+      name: (review.userName ?? '').trim().isEmpty
+          ? 'Anonymous User'
+          : review.userName!.trim(),
+      rating: rating,
+      text: body.isEmpty ? 'No review text provided.' : body,
+      title: title,
+      isVerified: true,
+      daysAgo: _daysAgoFromIso(review.createdAt),
+      createdAt: review.createdAt,
+    );
+  }
+
+  int _daysAgoFromIso(String? iso) {
+    if ((iso ?? '').trim().isEmpty) return 0;
+    final parsed = DateTime.tryParse(iso!.trim());
+    if (parsed == null) return 0;
+    final now = DateTime.now();
+    final diff = now.difference(parsed.toLocal()).inDays;
+    return diff < 0 ? 0 : diff;
   }
 
   SliverToBoxAdapter _similarHeader(ThemeData theme) {
@@ -1201,8 +1276,23 @@ class _StatusPill extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _ProductDetailsTable extends StatelessWidget {
+  final String? shortDescription;
   final String? categoryLabel;
+  final String? brand;
+  final String? unitLabel;
+  final bool? couponApplicable;
+  final int? discountPercentage;
+  final bool? inStock;
   final String? sku;
+  final int? maxOrderQuantity;
+  final int? minOrderQuantity;
+  final String? estimatedDeliveryTime;
+  final DateTime? expiryDate;
+  final DateTime? manufacturingDate;
+  final String? countryOfOrigin;
+  final String? deliveryType;
+  final int? deliveryCharge;
+  final bool? freeDelivery;
   final String? weight;
   final String? attributes;
   final int? stockLeft;
@@ -1213,8 +1303,23 @@ class _ProductDetailsTable extends StatelessWidget {
   final Color errorColor;
 
   const _ProductDetailsTable({
+    this.shortDescription,
     this.categoryLabel,
+    this.brand,
+    this.unitLabel,
+    this.couponApplicable,
+    this.discountPercentage,
+    this.inStock,
     this.sku,
+    this.maxOrderQuantity,
+    this.minOrderQuantity,
+    this.estimatedDeliveryTime,
+    this.expiryDate,
+    this.manufacturingDate,
+    this.countryOfOrigin,
+    this.deliveryType,
+    this.deliveryCharge,
+    this.freeDelivery,
     this.weight,
     this.attributes,
     this.stockLeft,
@@ -1228,9 +1333,45 @@ class _ProductDetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <_TableEntry>[
+      if ((shortDescription ?? '').trim().isNotEmpty)
+        _TableEntry('Short description', shortDescription!.trim()),
       if ((categoryLabel ?? '').trim().isNotEmpty)
         _TableEntry('Category', categoryLabel!.trim()),
+      if ((brand ?? '').trim().isNotEmpty)
+        _TableEntry('Brand', brand!.trim()),
+      if ((unitLabel ?? '').trim().isNotEmpty)
+        _TableEntry('Unit', unitLabel!.trim()),
+      if (couponApplicable != null)
+        _TableEntry(
+          'Coupon',
+          couponApplicable == true ? 'Applicable' : 'Not applicable',
+        ),
+      if (discountPercentage != null)
+        _TableEntry('Discount', '$discountPercentage%'),
+      if (inStock != null)
+        _TableEntry('In stock', inStock == true ? 'Yes' : 'No'),
       if ((sku ?? '').trim().isNotEmpty) _TableEntry('SKU', sku!.trim()),
+      if (maxOrderQuantity != null)
+        _TableEntry('Max order quantity', '$maxOrderQuantity'),
+      if (minOrderQuantity != null)
+        _TableEntry('Min order quantity', '$minOrderQuantity'),
+      if ((estimatedDeliveryTime ?? '').trim().isNotEmpty)
+        _TableEntry(
+          'Estimated delivery',
+          estimatedDeliveryTime!.trim(),
+        ),
+      if (expiryDate != null)
+        _TableEntry('Expiry date', _formatDate(expiryDate!)),
+      if (manufacturingDate != null)
+        _TableEntry('Manufactured on', _formatDate(manufacturingDate!)),
+      if ((countryOfOrigin ?? '').trim().isNotEmpty)
+        _TableEntry('Country of origin', countryOfOrigin!.trim()),
+      if ((deliveryType ?? '').trim().isNotEmpty)
+        _TableEntry('Delivery type', deliveryType!.trim()),
+      if (deliveryCharge != null)
+        _TableEntry('Delivery charge', 'Rs $deliveryCharge'),
+      if (freeDelivery != null)
+        _TableEntry('Free delivery', freeDelivery == true ? 'Yes' : 'No'),
       if ((weight ?? '').trim().isNotEmpty)
         _TableEntry('Weight', weight!.trim()),
       if ((attributes ?? '').trim().isNotEmpty)
@@ -1287,6 +1428,25 @@ class _ProductDetailsTable extends StatelessWidget {
         );
       }),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    const monthNames = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return '${monthNames[date.month - 1]} ${date.day}, ${date.year}';
   }
 }
 

@@ -1,33 +1,57 @@
 class ListReview {
   bool? success;
-  List<ReviewData>? data;
+  double? averageRating;
+  int? reviewCount;
+  List<Data>? data;
 
-  ListReview({this.success, this.data});
+  ListReview({this.success, this.averageRating, this.reviewCount, this.data});
 
   ListReview.fromJson(Map<String, dynamic> json) {
-    success = json['success'] == true;
-    final rawList = json['data'];
-    if (rawList is List) {
-      data = rawList
-          .whereType<Map<String, dynamic>>()
-          .map((v) => ReviewData.fromJson(v))
-          .toList(growable: false);
-    } else {
-      data = const <ReviewData>[];
+    success = _asBool(json['success']);
+    averageRating = _asDouble(json['averageRating']);
+    reviewCount = _asInt(json['reviewCount']);
+    if (json['data'] != null) {
+      data = <Data>[];
+      json['data'].forEach((v) {
+        data!.add(Data.fromJson(v));
+      });
     }
   }
 
   Map<String, dynamic> toJson() {
-    final result = <String, dynamic>{};
-    result['success'] = success;
-    result['data'] = (data ?? const <ReviewData>[])
-        .map((v) => v.toJson())
-        .toList();
-    return result;
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['success'] = this.success;
+    data['averageRating'] = this.averageRating;
+    data['reviewCount'] = this.reviewCount;
+    if (this.data != null) {
+      data['data'] = this.data!.map((v) => v.toJson()).toList();
+    }
+    return data;
+  }
+
+  static bool? _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value?.toString().trim().toLowerCase();
+    if (text == null || text.isEmpty) return null;
+    if (text == 'true' || text == '1') return true;
+    if (text == 'false' || text == '0') return false;
+    return null;
+  }
+
+  static double? _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  static int? _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
   }
 }
 
-class ReviewData {
+class Data {
   int? id;
   int? productId;
   int? userId;
@@ -39,55 +63,49 @@ class ReviewData {
   String? updatedAt;
   String? userName;
 
-  ReviewData({
-    this.id,
-    this.productId,
-    this.userId,
-    this.rating,
-    this.title,
-    this.comment,
-    this.status,
-    this.createdAt,
-    this.updatedAt,
-    this.userName,
-  });
+  Data(
+      {this.id,
+      this.productId,
+      this.userId,
+      this.rating,
+      this.title,
+      this.comment,
+      this.status,
+      this.createdAt,
+      this.updatedAt,
+      this.userName});
 
-  ReviewData.fromJson(Map<String, dynamic> json) {
+  Data.fromJson(Map<String, dynamic> json) {
     id = _asInt(json['id']);
     productId = _asInt(json['product_id']);
     userId = _asInt(json['user_id']);
     rating = _asInt(json['rating']);
-    title = _asString(json['title']);
-    comment = _asString(json['comment']);
-    status = _asString(json['status']);
-    createdAt = _asString(json['created_at']);
-    updatedAt = _asString(json['updated_at']);
-    userName = _asString(json['user_name']);
+    title = json['title']?.toString();
+    comment = json['comment']?.toString();
+    status = json['status']?.toString();
+    createdAt = json['created_at']?.toString();
+    updatedAt = json['updated_at']?.toString();
+    userName = json['user_name']?.toString();
   }
 
   Map<String, dynamic> toJson() {
-    final result = <String, dynamic>{};
-    result['id'] = id;
-    result['product_id'] = productId;
-    result['user_id'] = userId;
-    result['rating'] = rating;
-    result['title'] = title;
-    result['comment'] = comment;
-    result['status'] = status;
-    result['created_at'] = createdAt;
-    result['updated_at'] = updatedAt;
-    result['user_name'] = userName;
-    return result;
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['id'] = this.id;
+    data['product_id'] = this.productId;
+    data['user_id'] = this.userId;
+    data['rating'] = this.rating;
+    data['title'] = this.title;
+    data['comment'] = this.comment;
+    data['status'] = this.status;
+    data['created_at'] = this.createdAt;
+    data['updated_at'] = this.updatedAt;
+    data['user_name'] = this.userName;
+    return data;
   }
-}
 
-int? _asInt(Object? value) {
-  if (value is int) return value;
-  return int.tryParse(value?.toString() ?? '');
-}
-
-String? _asString(Object? value) {
-  final text = value?.toString().trim() ?? '';
-  if (text.isEmpty || text.toLowerCase() == 'null') return null;
-  return text;
+  static int? _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
 }
