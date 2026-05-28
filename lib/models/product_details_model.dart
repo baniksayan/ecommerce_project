@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
 class Productdetails {
   bool? success;
   Data? data;
@@ -212,11 +215,48 @@ class Data {
   }
 
   static List<String>? _asStringList(Object? value) {
+    debugPrint('--- [DEBUG] _asStringList ---');
+    debugPrint('value runtimeType: ${value.runtimeType}');
+    debugPrint('value: $value');
+
     if (value is List) {
-      return value.map((e) => e.toString()).toList();
+      final list = value.map((e) => e.toString()).toList();
+      debugPrint('Parsed as List: $list');
+      return list;
+    }
+    
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+      
+      // Try to parse if it's a JSON encoded list
+      if (text.startsWith('[') && text.endsWith(']')) {
+        try {
+          final decoded = jsonDecode(text);
+          if (decoded is List) {
+            final list = decoded.map((e) => e.toString()).toList();
+            debugPrint('Parsed from JSON string: $list');
+            return list;
+          }
+        } catch (_) {
+          debugPrint('Failed to decode JSON string list');
+        }
+      }
+      
+      // Otherwise treat as a single string, maybe comma separated? Let's just return as single item list for now
+      // Or split by comma
+      if (text.contains(',')) {
+         final list = text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+         debugPrint('Parsed from comma string: $list');
+         return list;
+      }
+      
+      debugPrint('Parsed as single string item');
+      return [text];
     }
     return null;
   }
+
 
   static DateTime? _asDateTime(Object? value) {
     final text = _asString(value);

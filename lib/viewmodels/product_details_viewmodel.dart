@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import '../data/models/cart_item_model.dart';
 import '../data/models/product_model.dart';
@@ -206,10 +207,16 @@ class ProductDetailsViewModel extends BaseViewModel {
       final detailData = detail.data;
 
       if (detailData != null) {
+        debugPrint('--- [DEBUG] Viewmodel hydrating from API ---');
+        debugPrint('Raw images from model: ${detailData.images}');
+        
         final images = (detailData.images ?? const <String>[])
             .map(_apiService.resolveImageUrl)
             .where((e) => e.trim().isNotEmpty)
             .toList(growable: false);
+            
+        debugPrint('Resolved images: $images');
+            
         if (images.isNotEmpty) {
           _imageUrls = images;
         }
@@ -295,7 +302,7 @@ class ProductDetailsViewModel extends BaseViewModel {
       }
 
       final list = await _apiService.getProducts();
-      final apiAll = (list.data ?? const <ProductItemModel>[])
+      final apiAll = (list.data ?? const <Data>[])
           .where(
             (item) => item.id != null && (item.name ?? '').trim().isNotEmpty,
           )
@@ -344,15 +351,15 @@ class ProductDetailsViewModel extends BaseViewModel {
     return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+  ProductModel _mapApiProduct(Data item, int index) {
     final id = item.id?.toString() ?? 'detail-api-$index';
-    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    final price = item.price?.toDouble() ?? 0.0;
 
     return ProductModel(
       id: id,
       category: _categoryFromApiName(item.categoryName),
       name: item.name!.trim(),
-      imageUrl: _apiService.resolveImageUrl(item.images),
+      imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
       price: price,
       originalPrice: null,
       discountTag: null,

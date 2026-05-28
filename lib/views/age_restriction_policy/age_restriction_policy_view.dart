@@ -5,6 +5,7 @@ import '../../common/buttons/cart_icon_button.dart';
 import '../../core/theme/app_colors.dart';
 import '../../common/bottombar/common_bottom_bar.dart';
 import '../main/main_view.dart';
+import '../../viewmodels/age_restriction_policy_viewmodel.dart';
 
 // ─────────────────────────────────────────────
 // Data model for an Age Restriction Policy section
@@ -217,69 +218,51 @@ class AgeRestrictionPolicyView extends StatefulWidget {
 }
 
 class _AgeRestrictionPolicyViewState extends State<AgeRestrictionPolicyView> {
+  late final AgeRestrictionPolicyViewModel _vm;
   final ScrollController _scrollController = ScrollController();
   double _scrollProgress = 0.0;
-
-  // ── Static policy sections ────────────────────────────────────────────────
-  // Structured for straightforward future API integration:
-  // replace this list with a mapped API response to populate sections dynamically.
-  static const List<_AgeRestrictionSection> _sections = [
-    _AgeRestrictionSection(
-      number: 'SECTION 01',
-      title: 'Minimum Age Requirement',
-      icon: Icons.cake_outlined,
-      content:
-          'The purchase of tobacco and other regulated products — including but not limited to Cigarettes, Bidis, Khaini, Gutkha, and Zarda — is strictly restricted to individuals who are eighteen (18) years of age or older, in accordance with applicable laws and local regulations. By placing an order for such products through the Mandal Variety app, the user expressly represents and warrants that they meet the minimum legal age requirement.',
-    ),
-    _AgeRestrictionSection(
-      number: 'SECTION 02',
-      title: 'Age Verification at Delivery',
-      icon: Icons.badge_outlined,
-      content:
-          'Age verification may be conducted at the time of delivery. Customers may be required to present a valid government-issued identification document as proof of age. If the recipient fails to provide valid identification or is found to be under the legal age, the delivery personnel reserve the right to refuse handover of the restricted products without prior notice.',
-    ),
-    _AgeRestrictionSection(
-      number: 'SECTION 03',
-      title: 'Product Visibility & Discoverability',
-      icon: Icons.visibility_off_outlined,
-      content:
-          'Mandal Variety does not promote or advertise tobacco products. Such products are displayed separately within the application and are accessible only through direct search functionality. These items will not appear in promotional banners, recommendations, or suggestion modules.',
-    ),
-    _AgeRestrictionSection(
-      number: 'SECTION 04',
-      title: 'Limitation of Liability',
-      icon: Icons.balance_outlined,
-      content:
-          'The platform shall not be held liable for any misuse, resale, or unlawful consumption of regulated products after successful delivery. Responsibility for compliance with age-related laws rests solely with the purchaser.',
-    ),
-    _AgeRestrictionSection(
-      number: 'SECTION 05',
-      title: 'Regulated Product Categories',
-      icon: Icons.category_outlined,
-      content:
-          'Products subject to this policy include, but are not limited to: Cigarettes, Bidis, Khaini, Gutkha, Zarda, and any other tobacco-derived or nicotine-containing products listed under applicable regulatory frameworks. Additional categories may be added as regulations evolve.',
-    ),
-    _AgeRestrictionSection(
-      number: 'SECTION 06',
-      title: 'Compliance with Applicable Law',
-      icon: Icons.gavel_rounded,
-      content:
-          'This policy is framed in compliance with the Cigarettes and Other Tobacco Products Act (COTPA) and any other applicable central or state legislation governing the sale of tobacco and restricted products in India. Mandal Variety is committed to responsible retail and will co-operate fully with any regulatory enquiry or audit.',
-    ),
-  ];
 
   @override
   void initState() {
     super.initState();
+    _vm = AgeRestrictionPolicyViewModel();
+    _vm.fetchSections();
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _vm.dispose();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  IconData _parseIcon(String? iconString) {
+    if (iconString == null) return Icons.policy_outlined;
+    final map = {
+      'cake_outlined': Icons.cake_outlined,
+      'badge_outlined': Icons.badge_outlined,
+      'visibility_off_outlined': Icons.visibility_off_outlined,
+      'balance_outlined': Icons.balance_outlined,
+      'category_outlined': Icons.category_outlined,
+      'gavel_rounded': Icons.gavel_rounded,
+    };
+    return map[iconString] ?? Icons.policy_outlined;
+  }
+
+  List<_AgeRestrictionSection> get _activeSections {
+    return _vm.sections
+        .map(
+          (d) => _AgeRestrictionSection(
+            number: d.number ?? '',
+            title: d.title ?? '',
+            content: d.content ?? '',
+            icon: _parseIcon(d.icon),
+          ),
+        )
+        .toList();
   }
 
   void _onScroll() {
@@ -309,7 +292,8 @@ class _AgeRestrictionPolicyViewState extends State<AgeRestrictionPolicyView> {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.primaryColor;
     final onSurface = theme.colorScheme.onSurface;
-    final bottomContentSpacer = 112.0 + MediaQuery.viewPaddingOf(context).bottom;
+    final bottomContentSpacer =
+        112.0 + MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
       extendBody: true,
@@ -388,20 +372,34 @@ class _AgeRestrictionPolicyViewState extends State<AgeRestrictionPolicyView> {
             // ── Hero header ─────────────────────────────────
             _HeroHeader(isDark: isDark, primary: primary, onSurface: onSurface),
             // ── Sections list ────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (int i = 0; i < _sections.length; i++) ...[
-                    _ExpandableSection(
-                      section: _sections[i],
-                      initiallyExpanded: i == 0,
-                    ),
-                    if (i < _sections.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              ),
+            AnimatedBuilder(
+              animation: _vm,
+              builder: (context, _) {
+                if (_vm.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final sectionsToDisplay = _activeSections;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < sectionsToDisplay.length; i++) ...[
+                        _ExpandableSection(
+                          section: sectionsToDisplay[i],
+                          initiallyExpanded: i == 0,
+                        ),
+                        if (i < sectionsToDisplay.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
             // ── Footer acknowledgment ─────────────────────
             _FooterAcknowledgment(onSurface: onSurface),

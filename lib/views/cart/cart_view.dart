@@ -121,7 +121,7 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
 
     try {
       final response = await _apiService.getProducts();
-      final items = (response.data ?? const <ProductItemModel>[])
+      final items = (response.data ?? const <Data>[])
           .where((p) => p.id != null && (p.name ?? '').trim().isNotEmpty)
           .toList(growable: false)
           .asMap()
@@ -144,15 +144,15 @@ class _CartViewState extends State<CartView> with TickerProviderStateMixin {
     }
   }
 
-  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+  ProductModel _mapApiProduct(Data item, int index) {
     final id = item.id?.toString() ?? 'cart-api-$index';
-    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    final price = item.price?.toDouble() ?? 0.0;
 
     return ProductModel(
       id: id,
       category: _categoryFromApiName(item.categoryName),
       name: item.name!.trim(),
-      imageUrl: _apiService.resolveImageUrl(item.images),
+      imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
       price: price,
       originalPrice: null,
       discountTag: null,

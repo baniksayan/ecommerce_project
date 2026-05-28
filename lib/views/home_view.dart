@@ -37,13 +37,13 @@ class _HomeViewState extends State<HomeView> {
     ]);
 
     final categories = results[0] as Categories;
-    final products = results[1] as Productlist;
+    final products = results[1] as ProductList;
 
     final categoryItems = (categories.data ?? <CategoryItemModel>[])
         .where((item) => (item.isActive ?? 1) == 1)
         .toList();
 
-    final productItems = products.data ?? <ProductItemModel>[];
+    final productItems = products.data ?? <Data>[];
 
     return _HomePayload(categories: categoryItems, products: productItems);
   }
@@ -59,7 +59,7 @@ class _HomeViewState extends State<HomeView> {
     await _refresh();
   }
 
-  List<ProductItemModel> _filteredProducts(List<ProductItemModel> products) {
+  List<Data> _filteredProducts(List<Data> products) {
     if (_selectedCategory.toLowerCase() == 'all') {
       return products;
     }
@@ -286,8 +286,8 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 itemBuilder: (context, index) {
                   final product = filteredProducts[index];
-                  final image = _apiService.resolveImageUrl(product.images);
-                  final price = (product.price ?? '').trim().isEmpty
+                  final image = _apiService.resolveImageUrl((product.images != null && product.images!.isNotEmpty) ? product.images!.first : null);
+                  final price = product.price == null
                       ? 'Price not available'
                       : 'Rs ${product.price}';
                   final categoryName =
@@ -367,7 +367,7 @@ class _HomePayload {
   const _HomePayload({required this.categories, required this.products});
 
   final List<CategoryItemModel> categories;
-  final List<ProductItemModel> products;
+  final List<Data> products;
 }
 
 class _ErrorState extends StatelessWidget {

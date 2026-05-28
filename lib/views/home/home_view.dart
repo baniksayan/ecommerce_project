@@ -101,13 +101,13 @@ class _HomeViewState extends State<HomeView> {
       ]);
 
       final categories = results[0] as Categories;
-      final products = results[1] as Productlist;
+      final products = results[1] as ProductList;
 
       final apiCategories = (categories.data ?? const <CategoryItemModel>[])
           .where((e) => (e.name ?? '').trim().isNotEmpty)
           .toList(growable: false);
 
-      final apiProducts = (products.data ?? const <ProductItemModel>[])
+      final apiProducts = (products.data ?? const <Data>[])
           .asMap()
           .entries
           .map((entry) => _mapApiProduct(entry.value, entry.key))
@@ -236,10 +236,10 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+  ProductModel _mapApiProduct(Data item, int index) {
     final category = _categoryFromApiName(item.categoryName);
     final id = item.id?.toString() ?? 'api-product-$index';
-    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    final price = item.price?.toDouble() ?? 0.0;
 
     return ProductModel(
       id: id,
@@ -247,7 +247,7 @@ class _HomeViewState extends State<HomeView> {
       name: (item.name ?? '').trim().isEmpty
           ? 'Unnamed Product'
           : item.name!.trim(),
-      imageUrl: _apiService.resolveImageUrl(item.images),
+      imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
       price: price,
       originalPrice: null,
       discountTag: null,

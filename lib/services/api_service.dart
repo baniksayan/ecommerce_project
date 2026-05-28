@@ -21,12 +21,13 @@ import '../models/policy_detail_model.dart';
 import '../models/policy_list_model.dart';
 import '../models/profile_model.dart';
 import '../models/product_details_model.dart';
-import '../models/product_list_model.dart';
+import '../models/product_list_model.dart' as pl;
 import '../models/update_coupon_model.dart';
 import '../models/wishlist_add_model.dart';
 import '../models/wishlist_list_model.dart';
 import '../models/wishlist_remove_model.dart';
 import '../models/order_models.dart';
+import '../models/age_verification_list_model.dart';
 
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
@@ -58,9 +59,9 @@ class ApiService {
     return Categories.fromJson(jsonMap);
   }
 
-  Future<Productlist> getProducts() async {
+  Future<pl.ProductList> getProducts() async {
     final jsonMap = await _get('products/list.php');
-    return Productlist.fromJson(jsonMap);
+    return pl.ProductList.fromJson(jsonMap);
   }
 
   Future<Productdetails> getProductDetails(int productId) async {
@@ -179,6 +180,11 @@ class ApiService {
   Future<ListCoupons> getCouponsList() async {
     final jsonMap = await _get('coupons/list.php');
     return ListCoupons.fromJson(jsonMap);
+  }
+
+  Future<AgeVerificationList> getAgeVerifications() async {
+    final jsonMap = await _get('age_verifications/list.php');
+    return AgeVerificationList.fromJson(jsonMap);
   }
 
   Future<UpdateCoupon> updateCoupon({
@@ -475,11 +481,11 @@ class ApiService {
 
     try {
       final list = await getProducts();
-      final products = list.data ?? const <ProductItemModel>[];
+      final products = list.data ?? const <pl.Data>[];
 
       final exact = products.firstWhere(
         (p) => _normalizeProductName(p.name) == normalized && p.id != null,
-        orElse: () => ProductItemModel(),
+        orElse: () => pl.Data(),
       );
       if (exact.id != null) {
         return exact.id;
@@ -490,7 +496,7 @@ class ApiService {
             (_normalizeProductName(p.name).contains(normalized) ||
                 normalized.contains(_normalizeProductName(p.name))) &&
             p.id != null,
-        orElse: () => ProductItemModel(),
+        orElse: () => pl.Data(),
       );
       return partial.id;
     } catch (_) {
@@ -1049,19 +1055,22 @@ class ApiService {
   String resolveImageUrl(String? imagePath) {
     final raw = (imagePath ?? '').trim();
     if (raw.isEmpty) {
+      debugPrint('Product Image URL resolved to: <empty>');
       return '';
     }
 
+    String resolved;
     final uri = Uri.tryParse(raw);
     if (uri != null && uri.hasScheme) {
-      return raw;
+      resolved = raw;
+    } else if (raw.startsWith('/')) {
+      resolved = '$_baseUrl$raw';
+    } else {
+      resolved = '$_baseUrl/$raw';
     }
 
-    if (raw.startsWith('/')) {
-      return '$_baseUrl$raw';
-    }
-
-    return '$_baseUrl/$raw';
+    debugPrint('Product Image URL resolved to: $resolved');
+    return resolved;
   }
 
   Future<Map<String, dynamic>> _get(

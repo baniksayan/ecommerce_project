@@ -137,7 +137,7 @@ class ProductListingViewModel extends BaseViewModel {
     clearError();
     try {
       final response = await _apiService.getProducts();
-      final mapped = (response.data ?? const <ProductItemModel>[])
+      final mapped = (response.data ?? const <Data>[])
           .asMap()
           .entries
           .map((entry) => _mapApiProduct(entry.value, entry.key))
@@ -158,16 +158,16 @@ class ProductListingViewModel extends BaseViewModel {
     }
   }
 
-  ProductModel _mapApiProduct(ProductItemModel item, int index) {
+  ProductModel _mapApiProduct(Data item, int index) {
     final id = item.id?.toString() ?? 'listing-api-$index';
-    final price = double.tryParse((item.price ?? '').trim()) ?? 0.0;
+    final price = item.price?.toDouble() ?? 0.0;
     return ProductModel(
       id: id,
       category: _categoryFromApiName(item.categoryName),
       name: (item.name ?? '').trim().isEmpty
           ? 'Product ${index + 1}'
           : item.name!.trim(),
-      imageUrl: _apiService.resolveImageUrl(item.images),
+      imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
       price: price,
       originalPrice: null,
       discountTag: null,
