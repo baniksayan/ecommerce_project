@@ -7,8 +7,13 @@ import '../orders/orders_view.dart';
 
 class MainView extends StatefulWidget {
   final int initialIndex;
+  final String? initialHomeSearchQuery;
 
-  const MainView({super.key, this.initialIndex = 0});
+  const MainView({
+    super.key,
+    this.initialIndex = 0,
+    this.initialHomeSearchQuery,
+  });
 
   @override
   State<MainView> createState() => _MainViewState();
@@ -57,7 +62,11 @@ class _MainViewState extends State<MainView> {
         controller: _pageController,
         onPageChanged: _onPageChanged,
         physics: const ClampingScrollPhysics(),
-        children: [const HomeView(), const WishlistView(), const OrdersView()],
+        children: [
+          HomeView(initialSearchQuery: widget.initialHomeSearchQuery),
+          const WishlistView(),
+          const OrdersView(),
+        ],
       ),
       bottomNavigationBar: CommonBottomBar(
         currentIndex: _navIndex,

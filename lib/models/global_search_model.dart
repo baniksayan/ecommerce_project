@@ -128,8 +128,10 @@ class GlobalSearchItem {
   String? name;
   String? slug;
   String? description;
+  String? shortDescription;
   String? price;
   String? discountPrice;
+  int? discountPercentage;
   String? sku;
   int? stockQuantity;
   int? categoryId;
@@ -141,14 +143,19 @@ class GlobalSearchItem {
   int? stock;
   String? attributes;
   String? categoryName;
+  bool? isInStock;
+  bool? freeDelivery;
+  String? deliveryType;
 
   GlobalSearchItem({
     this.id,
     this.name,
     this.slug,
     this.description,
+    this.shortDescription,
     this.price,
     this.discountPrice,
+    this.discountPercentage,
     this.sku,
     this.stockQuantity,
     this.categoryId,
@@ -160,6 +167,9 @@ class GlobalSearchItem {
     this.stock,
     this.attributes,
     this.categoryName,
+    this.isInStock,
+    this.freeDelivery,
+    this.deliveryType,
   });
 
   GlobalSearchItem.fromJson(Map<String, dynamic> json) {
@@ -167,12 +177,18 @@ class GlobalSearchItem {
     name = _asString(json['name']);
     slug = _asString(json['slug']);
     description = _asString(json['description']);
+    shortDescription = _asString(
+      json['short_description'] ?? json['shortDescription'],
+    );
     price = _asString(json['price']);
     discountPrice = _asString(json['discount_price']);
+    discountPercentage = _asInt(
+      json['discount_percentage'] ?? json['discountPercentage'],
+    );
     sku = _asString(json['sku']);
     stockQuantity = _asInt(json['stock_quantity']);
     categoryId = _asInt(json['category_id']);
-    images = _asString(json['images']);
+    images = _asImageString(json['images']);
     weight = _asString(json['weight']);
     isActive = _asInt(json['is_active']);
     createdAt = _asString(json['created_at']);
@@ -180,6 +196,9 @@ class GlobalSearchItem {
     stock = _asInt(json['stock']);
     attributes = _asString(json['attributes']);
     categoryName = _asString(json['category_name']);
+    isInStock = _asBool(json['is_in_stock'] ?? json['isInStock']);
+    freeDelivery = _asBool(json['free_delivery'] ?? json['freeDelivery']);
+    deliveryType = _asString(json['delivery_type'] ?? json['deliveryType']);
   }
 
   Map<String, dynamic> toJson() {
@@ -188,8 +207,10 @@ class GlobalSearchItem {
     map['name'] = name;
     map['slug'] = slug;
     map['description'] = description;
+    map['short_description'] = shortDescription;
     map['price'] = price;
     map['discount_price'] = discountPrice;
+    map['discount_percentage'] = discountPercentage;
     map['sku'] = sku;
     map['stock_quantity'] = stockQuantity;
     map['category_id'] = categoryId;
@@ -201,6 +222,9 @@ class GlobalSearchItem {
     map['stock'] = stock;
     map['attributes'] = attributes;
     map['category_name'] = categoryName;
+    map['is_in_stock'] = isInStock;
+    map['free_delivery'] = freeDelivery;
+    map['delivery_type'] = deliveryType;
     return map;
   }
 }
@@ -281,4 +305,26 @@ String? _asString(Object? value) {
   final text = value?.toString().trim() ?? '';
   if (text.isEmpty || text.toLowerCase() == 'null') return null;
   return text;
+}
+
+bool? _asBool(Object? value) {
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  if (text.isEmpty || text == 'null') return null;
+  if (text == 'true' || text == '1') return true;
+  if (text == 'false' || text == '0') return false;
+  return null;
+}
+
+String? _asImageString(Object? value) {
+  if (value is List) {
+    for (final entry in value) {
+      final text = _asString(entry);
+      if (text != null) return text;
+    }
+    return null;
+  }
+
+  return _asString(value);
 }

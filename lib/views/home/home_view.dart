@@ -16,7 +16,9 @@ import '../product_details/product_details_view.dart';
 import '../product_listing/product_listing_view.dart';
 
 class HomeView extends StatefulWidget {
-  const HomeView({super.key});
+  final String? initialSearchQuery;
+
+  const HomeView({super.key, this.initialSearchQuery});
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -83,7 +85,18 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchQuery = initialQuery;
+    }
     _loadDynamicHomeData();
+
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _onSearchChanged(initialQuery);
+      });
+    }
   }
 
   Future<void> _loadDynamicHomeData() async {
@@ -206,6 +219,7 @@ class _HomeViewState extends State<HomeView> {
 
     final basePrice = double.tryParse((item.price ?? '').trim()) ?? 0.0;
     final discount = double.tryParse((item.discountPrice ?? '').trim());
+    final discountPercent = item.discountPercentage;
 
     double finalPrice = basePrice;
     double? originalPrice;
@@ -213,6 +227,18 @@ class _HomeViewState extends State<HomeView> {
       finalPrice = discount;
       originalPrice = basePrice;
     }
+
+    final discountTag = discountPercent != null && discountPercent > 0
+      ? '$discountPercent% OFF'
+      : null;
+
+    final shortDescription = (item.shortDescription ?? '').trim().isNotEmpty
+      ? item.shortDescription!.trim()
+      : (item.description ?? '').trim();
+
+    final deliveryType = (item.deliveryType ?? '').toLowerCase();
+    final isFastDelivery =
+      deliveryType.contains('fast') || deliveryType.contains('same');
 
     final rawImage = (item.images ?? '').trim();
     final imageUrl = rawImage.isEmpty
@@ -223,15 +249,18 @@ class _HomeViewState extends State<HomeView> {
       id: id,
       category: _categoryFromApiName(item.categoryName),
       name: name,
+      shortDescription: shortDescription.isEmpty ? null : shortDescription,
       imageUrl: imageUrl,
       price: finalPrice,
       originalPrice: originalPrice,
-      discountTag: null,
+      discountTag: discountTag,
+      discountPercentage: discountPercent,
       rating: null,
       reviewCount: null,
       reviews: const [],
       stockLeft: item.stockQuantity ?? item.stock,
-      isFastDelivery: null,
+      isFastDelivery: isFastDelivery,
+      freeDelivery: item.freeDelivery,
       isBestSeller: null,
     );
   }
@@ -239,7 +268,28 @@ class _HomeViewState extends State<HomeView> {
   ProductModel _mapApiProduct(Data item, int index) {
     final category = _categoryFromApiName(item.categoryName);
     final id = item.id?.toString() ?? 'api-product-$index';
-    final price = item.price?.toDouble() ?? 0.0;
+    final basePrice = item.price?.toDouble() ?? 0.0;
+    final discountPrice = item.discountPrice?.toDouble();
+
+    double finalPrice = basePrice;
+    double? originalPrice;
+    if (discountPrice != null && discountPrice > 0 && discountPrice < basePrice) {
+      finalPrice = discountPrice;
+      originalPrice = basePrice;
+    }
+
+    final discountPercent = item.discountPercentage;
+    final discountTag = discountPercent != null && discountPercent > 0
+        ? '$discountPercent% OFF'
+        : null;
+
+    final shortDescription = (item.shortDescription ?? '').trim().isEmpty
+        ? (item.description ?? '').trim()
+        : item.shortDescription!.trim();
+
+    final deliveryType = (item.deliveryType ?? '').toLowerCase();
+    final isFastDelivery =
+        deliveryType.contains('fast') || deliveryType.contains('same');
 
     return ProductModel(
       id: id,
@@ -247,14 +297,17 @@ class _HomeViewState extends State<HomeView> {
       name: (item.name ?? '').trim().isEmpty
           ? 'Unnamed Product'
           : item.name!.trim(),
+      shortDescription: shortDescription.isEmpty ? null : shortDescription,
       imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
-      price: price,
-      originalPrice: null,
-      discountTag: null,
+      price: finalPrice,
+      originalPrice: originalPrice,
+      discountTag: discountTag,
+      discountPercentage: discountPercent,
       rating: null,
       reviewCount: null,
-      stockLeft: null,
-      isFastDelivery: null,
+      stockLeft: item.stockQuantity ?? item.stock,
+      isFastDelivery: isFastDelivery,
+      freeDelivery: item.freeDelivery,
       isBestSeller: null,
     );
   }
@@ -405,6 +458,8 @@ class _HomeViewState extends State<HomeView> {
               ],
               onSearchChanged: _onSearchChanged,
               currentBottomBarIndex: 0,
+              showBackButton:
+                  (widget.initialSearchQuery ?? '').trim().isNotEmpty,
             ),
             if (_isSearchMode)
               SliverToBoxAdapter(child: _buildSearchResults(theme))

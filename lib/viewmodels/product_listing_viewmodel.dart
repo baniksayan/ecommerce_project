@@ -160,22 +160,48 @@ class ProductListingViewModel extends BaseViewModel {
 
   ProductModel _mapApiProduct(Data item, int index) {
     final id = item.id?.toString() ?? 'listing-api-$index';
-    final price = item.price?.toDouble() ?? 0.0;
+    final basePrice = item.price?.toDouble() ?? 0.0;
+    final discountPrice = item.discountPrice?.toDouble();
+
+    double finalPrice = basePrice;
+    double? originalPrice;
+    if (discountPrice != null && discountPrice > 0 && discountPrice < basePrice) {
+      finalPrice = discountPrice;
+      originalPrice = basePrice;
+    }
+
+    final discountPercent = item.discountPercentage;
+    final discountTag = discountPercent != null && discountPercent > 0
+        ? '$discountPercent% OFF'
+        : null;
+
+    final shortDescription = (item.shortDescription ?? '').trim().isEmpty
+        ? (item.description ?? '').trim()
+        : item.shortDescription!.trim();
+
+    final stockLeft = item.stockQuantity ?? item.stock;
+    final fastDeliveryHint = (item.deliveryType ?? '').toLowerCase();
+    final isFastDelivery =
+        fastDeliveryHint.contains('fast') || fastDeliveryHint.contains('same');
+
     return ProductModel(
       id: id,
       category: _categoryFromApiName(item.categoryName),
       name: (item.name ?? '').trim().isEmpty
           ? 'Product ${index + 1}'
           : item.name!.trim(),
+      shortDescription: shortDescription.isEmpty ? null : shortDescription,
       imageUrl: _apiService.resolveImageUrl((item.images != null && item.images!.isNotEmpty) ? item.images!.first : null),
-      price: price,
-      originalPrice: null,
-      discountTag: null,
+      price: finalPrice,
+      originalPrice: originalPrice,
+      discountTag: discountTag,
+      discountPercentage: discountPercent,
       rating: null,
       reviewCount: null,
       reviews: const [],
-      stockLeft: null,
-      isFastDelivery: null,
+      stockLeft: stockLeft,
+      isFastDelivery: isFastDelivery,
+      freeDelivery: item.freeDelivery,
       isBestSeller: null,
     );
   }

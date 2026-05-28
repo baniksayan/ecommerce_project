@@ -279,6 +279,11 @@ class _ProductGridCardState extends State<ProductGridCard> {
     final hasDiscount =
         widget.product.originalPrice != null &&
         widget.product.originalPrice! > widget.product.price;
+    final discountTag =
+      (widget.product.discountTag ?? '').trim().isNotEmpty
+      ? widget.product.discountTag!.trim()
+      : _deriveDiscountTag(widget.product);
+    final shortDescription = (widget.product.shortDescription ?? '').trim();
 
     final rating = widget.product.rating;
     final reviewCount = widget.product.reviewCount;
@@ -300,6 +305,7 @@ class _ProductGridCardState extends State<ProductGridCard> {
     final bool showLowStock =
         widget.product.stockLeft != null && widget.product.stockLeft! <= 5;
     final bool showFastDelivery = widget.product.isFastDelivery == true;
+    final bool showFreeDelivery = widget.product.freeDelivery == true;
     final int nameMaxLines = (rating != null && showLowStock) ? 1 : 2;
 
     Widget tagPill({
@@ -378,9 +384,9 @@ class _ProductGridCardState extends State<ProductGridCard> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (widget.product.discountTag != null)
+                              if (discountTag != null)
                                 tagPill(
-                                  text: widget.product.discountTag!,
+                                  text: discountTag,
                                   background: discountBg,
                                   foreground: theme.colorScheme.onError,
                                 ),
@@ -412,20 +418,41 @@ class _ProductGridCardState extends State<ProductGridCard> {
                             ],
                           ),
                           const Spacer(),
-                          if (showFastDelivery)
+                          if (showFastDelivery || showFreeDelivery)
                             Align(
                               alignment: Alignment.bottomRight,
-                              child: tagPill(
-                                text: 'Fast Delivery',
-                                background: fastDeliveryBg,
-                                foreground: fastDeliveryAccent,
-                                border: fastDeliveryAccent.withValues(
-                                  alpha: 0.55,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.end,
+                                children: [
+                                  if (showFreeDelivery)
+                                    tagPill(
+                                      text: 'Free Delivery',
+                                      background: fastDeliveryBg,
+                                      foreground: theme.primaryColor,
+                                      border: theme.primaryColor.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                    ),
+                                  if (showFastDelivery)
+                                    tagPill(
+                                      text: 'Fast Delivery',
+                                      background: fastDeliveryBg,
+                                      foreground: fastDeliveryAccent,
+                                      border: fastDeliveryAccent.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                         ],
@@ -451,6 +478,18 @@ class _ProductGridCardState extends State<ProductGridCard> {
                         ),
                       ),
                       const SizedBox(height: 4),
+                      if (shortDescription.isNotEmpty) ...[
+                        Text(
+                          shortDescription,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(
+                            color: onSurface.withValues(alpha: 0.72),
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                      ],
                       if (rating != null)
                         Row(
                           children: [
@@ -559,6 +598,21 @@ class _ProductGridCardState extends State<ProductGridCard> {
         ),
       ),
     );
+  }
+
+  String? _deriveDiscountTag(ProductModel product) {
+    if ((product.discountPercentage ?? 0) > 0) {
+      return '${product.discountPercentage}% OFF';
+    }
+
+    final original = product.originalPrice;
+    if (original == null || original <= product.price || original <= 0) {
+      return null;
+    }
+
+    final percentage = (((original - product.price) / original) * 100).round();
+    if (percentage <= 0) return null;
+    return '$percentage% OFF';
   }
 }
 

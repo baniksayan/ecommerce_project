@@ -8,14 +8,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/auth/auth_coordinator.dart';
+import '../../core/tobacco/tobacco_access_coordinator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/categories_model.dart';
 import '../../data/models/product_model.dart';
 import '../../services/api_service.dart';
 import '../../views/auth/email_login_view.dart';
-import '../../views/onboarding/onboarding_view.dart';
-import '../../views/product_listing/product_listing_view.dart';
 import '../../views/contact_us/contact_us_view.dart';
+import '../../views/onboarding/onboarding_view.dart';
+import '../../views/main/main_view.dart';
+import '../../views/product_listing/product_listing_view.dart';
 import '../dialogs/app_dialog.dart';
 
 const String _fallbackImageAsset = 'assets/logo/mandal_logo.png';
@@ -51,6 +54,8 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final TextEditingController _categorySearchController =
+      TextEditingController();
 
   bool _isFaqsExpanded = false;
   late AnimationController _faqsController;
@@ -65,6 +70,10 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   String _appVersion = '';
   String? _drawerName;
   String? _drawerProfilePicUrl;
+  bool _isLoadingCategories = true;
+  String? _categoriesError;
+  List<CategoryItemModel> _drawerCategories = const <CategoryItemModel>[];
+  String _categorySearchQuery = '';
 
   static const String _storeName = 'Mandal Variety';
 
@@ -143,6 +152,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _loadDrawerProfile();
+    _loadDrawerCategories();
     PackageInfo.fromPlatform().then((info) {
       if (mounted) setState(() => _appVersion = info.version);
     });
@@ -175,11 +185,392 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   void dispose() {
     _faqsController.dispose();
     _helpController.dispose();
+    _categorySearchController.dispose();
     super.dispose();
   }
 
   void _handleTap(BuildContext context, String actionMessage) {
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _loadDrawerCategories() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingCategories = true;
+        _categoriesError = null;
+      });
+    }
+
+    try {
+      final categories = await _apiService.getCategories();
+      final items = (categories.data ?? const <CategoryItemModel>[])
+          .where((item) => (item.name ?? '').trim().isNotEmpty)
+          .toList(growable: false)
+        ..sort((left, right) {
+          final leftName = (left.name ?? '').trim().toLowerCase();
+          final rightName = (right.name ?? '').trim().toLowerCase();
+          return leftName.compareTo(rightName);
+        });
+
+      if (!mounted) return;
+      setState(() {
+        _drawerCategories = items;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _categoriesError = error.toString();
+        _drawerCategories = const <CategoryItemModel>[];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCategories = false;
+        });
+      }
+    }
+  }
+
+  String _normalizedCategoryName(String? value) =>
+      value?.trim().toLowerCase() ?? '';
+
+  ProductCategory? _knownCategoryFromName(String? categoryName) {
+    final value = _normalizedCategoryName(categoryName);
+    if (value.contains('grocery')) return ProductCategory.grocery;
+    if (value.contains('beauty')) return ProductCategory.beauty;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return ProductCategory.shoes;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return ProductCategory.fresh;
+    }
+    if (value.contains('snack')) return ProductCategory.snacks;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return ProductCategory.drinks;
+    }
+    if (value.contains('dairy')) return ProductCategory.dairy;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return ProductCategory.tobacco;
+    }
+    return null;
+  }
+
+  IconData _iconFromCategoryName(String? categoryName) {
+    final value = _normalizedCategoryName(categoryName);
+    if (value.contains('grocery')) return Icons.local_grocery_store_outlined;
+    if (value.contains('beauty')) return Icons.face_outlined;
+    if (value.contains('shoe') || value.contains('footwear')) {
+      return Icons.snowshoeing_outlined;
+    }
+    if (value.contains('fresh') || value.contains('vegetable')) {
+      return Icons.eco_outlined;
+    }
+    if (value.contains('snack')) return Icons.fastfood_outlined;
+    if (value.contains('drink') || value.contains('beverage')) {
+      return Icons.local_drink_outlined;
+    }
+    if (value.contains('dairy')) return Icons.egg_alt_outlined;
+    if (value.contains('paan') || value.contains('tobacco')) {
+      return Icons.smoking_rooms_outlined;
+    }
+    return Icons.category_outlined;
+  }
+
+  List<CategoryItemModel> get _visibleCategories {
+    final query = _categorySearchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return _drawerCategories;
+    }
+
+    return _drawerCategories
+        .where((item) {
+          final name = (item.name ?? '').trim().toLowerCase();
+          final description = (item.description ?? '').trim().toLowerCase();
+          return name.contains(query) || description.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, List<CategoryItemModel>> _groupCategories(
+    List<CategoryItemModel> categories,
+  ) {
+    final groups = <String, List<CategoryItemModel>>{};
+
+    for (final category in categories) {
+      final name = (category.name ?? '').trim();
+      if (name.isEmpty) continue;
+      final initial = name.substring(0, 1).toUpperCase();
+      final key = RegExp(r'[A-Z]').hasMatch(initial) ? initial : '#';
+      groups.putIfAbsent(key, () => <CategoryItemModel>[]).add(category);
+    }
+
+    for (final entry in groups.entries) {
+      entry.value.sort((left, right) {
+        final leftName = (left.name ?? '').trim().toLowerCase();
+        final rightName = (right.name ?? '').trim().toLowerCase();
+        return leftName.compareTo(rightName);
+      });
+    }
+
+    return groups;
+  }
+
+  void _openCategory(BuildContext context, CategoryItemModel category) {
+    final categoryName = (category.name ?? '').trim();
+    if (categoryName.isEmpty) return;
+
+    HapticFeedback.selectionClick();
+    Navigator.pop(context);
+
+    final knownCategory = _knownCategoryFromName(categoryName);
+    if (knownCategory == ProductCategory.tobacco) {
+      TobaccoAccessCoordinator.instance.openTobaccoListing(
+        context,
+        currentBottomBarIndex: widget.currentBottomBarIndex ?? 0,
+      );
+      return;
+    }
+
+    if (knownCategory != null) {
+      Navigator.push(
+        context,
+        ProductListingView.route(
+          category: knownCategory,
+          currentBottomBarIndex: widget.currentBottomBarIndex ?? 0,
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MainView(
+          initialIndex: 0,
+          initialHomeSearchQuery: categoryName,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildCategoriesSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final categories = _visibleCategories;
+
+    final widgets = <Widget>[];
+
+    if (_drawerCategories.length > 8) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            controller: _categorySearchController,
+            onChanged: (value) => setState(() => _categorySearchQuery = value),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search categories',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _categorySearchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _categorySearchController.clear();
+                        setState(() => _categorySearchQuery = '');
+                      },
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.55,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isLoadingCategories) {
+      widgets.add(
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: LinearProgressIndicator(minHeight: 2),
+        ),
+      );
+      return widgets;
+    }
+
+    if (_categoriesError != null && categories.isEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.wifi_off_rounded,
+                      size: 18,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Live categories are unavailable right now.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _loadDrawerCategories,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return widgets;
+    }
+
+    if (categories.isEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Text(
+            'No categories available right now.',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+      return widgets;
+    }
+
+    if (_categorySearchQuery.trim().isNotEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+          child: Text(
+            '${categories.length} matching categories',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.hintColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+
+      if (categories.isEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Text(
+              'No categories match your search.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        );
+        return widgets;
+      }
+
+      for (final category in categories) {
+        widgets.add(_buildCategoryTile(context, category));
+      }
+
+      return widgets;
+    }
+
+    final groups = _groupCategories(categories);
+    final sortedKeys = groups.keys.toList()
+      ..sort((left, right) {
+        if (left == '#') return right == '#' ? 0 : -1;
+        if (right == '#') return 1;
+        return left.compareTo(right);
+      });
+
+    for (final key in sortedKeys) {
+      final groupItems = groups[key] ?? const <CategoryItemModel>[];
+      widgets.add(
+        ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          title: Text(
+            key == '#' ? 'Other categories' : key,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            '${groupItems.length} items',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.hintColor,
+            ),
+          ),
+          children: groupItems
+              .map((category) => _buildCategoryTile(context, category))
+              .toList(growable: false),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  Widget _buildCategoryTile(BuildContext context, CategoryItemModel category) {
+    final theme = Theme.of(context);
+    final categoryName = (category.name ?? '').trim();
+    final imageUrl = _apiService.resolveImageUrl(category.image);
+    final leadingWidget = imageUrl.isNotEmpty
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              imageUrl,
+              width: 28,
+              height: 28,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _CategoryLeadingIcon(
+                icon: _iconFromCategoryName(categoryName),
+              ),
+            ),
+          )
+        : _CategoryLeadingIcon(icon: _iconFromCategoryName(categoryName));
+
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: leadingWidget,
+      title: Text(
+        categoryName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios_rounded,
+        size: 14,
+        color: theme.iconTheme.color?.withValues(alpha: 0.7),
+      ),
+      onTap: () => _openCategory(context, category),
+    );
   }
 
   Future<void> _loadDrawerProfile() async {
@@ -489,125 +880,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               physics: const ClampingScrollPhysics(),
               children: [
                 _buildSectionTitle(context, 'Categories'),
-                _buildDrawerItem(
-                  context,
-                  title: 'Grocery',
-                  icon: Icons.local_grocery_store_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.grocery,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Beauty',
-                  icon: Icons.face_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.beauty,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Shoes',
-                  icon: Icons.snowshoeing_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.shoes,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Fresh',
-                  icon: Icons.eco_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.fresh,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Snacks',
-                  icon: Icons.fastfood_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.snacks,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Drinks',
-                  icon: Icons.local_drink_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.drinks,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  title: 'Dairy',
-                  icon: Icons.egg_alt_outlined,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      ProductListingView.route(
-                        category: ProductCategory.dairy,
-                        currentBottomBarIndex:
-                            widget.currentBottomBarIndex ?? 0,
-                      ),
-                    );
-                  },
-                ),
+                ..._buildCategoriesSection(context),
 
                 _buildSectionTitle(context, 'Utilities'),
                 _buildDrawerItem(
@@ -915,6 +1188,31 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     String description,
   ) {
     return _DrawerSubItem(title: title, description: description);
+  }
+}
+
+class _CategoryLeadingIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _CategoryLeadingIcon({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        icon,
+        size: 16,
+        color: theme.primaryColor,
+      ),
+    );
   }
 }
 

@@ -62,30 +62,36 @@ class ProductModel {
   final String id;
   final ProductCategory category;
   final String name;
+  final String? shortDescription;
   final String imageUrl;
   final double price;
   final double? originalPrice;
   final String? discountTag;
+  final int? discountPercentage;
   final double? rating;
   final int? reviewCount;
   final List<ProductReviewModel> reviews;
   final int? stockLeft;
   final bool? isFastDelivery;
+  final bool? freeDelivery;
   final bool? isBestSeller;
 
   const ProductModel({
     required this.id,
     required this.category,
     required this.name,
+    this.shortDescription,
     required this.imageUrl,
     required this.price,
     this.originalPrice,
     this.discountTag,
+    this.discountPercentage,
     this.rating,
     this.reviewCount,
     this.reviews = const [],
     this.stockLeft,
     this.isFastDelivery,
+    this.freeDelivery,
     this.isBestSeller,
   });
 
@@ -96,30 +102,36 @@ class ProductModel {
     String? id,
     ProductCategory? category,
     String? name,
+    String? shortDescription,
     String? imageUrl,
     double? price,
     double? originalPrice,
     String? discountTag,
+    int? discountPercentage,
     double? rating,
     int? reviewCount,
     List<ProductReviewModel>? reviews,
     int? stockLeft,
     bool? isFastDelivery,
+    bool? freeDelivery,
     bool? isBestSeller,
   }) {
     return ProductModel(
       id: id ?? this.id,
       category: category ?? this.category,
       name: name ?? this.name,
+      shortDescription: shortDescription ?? this.shortDescription,
       imageUrl: imageUrl ?? this.imageUrl,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
       discountTag: discountTag ?? this.discountTag,
+      discountPercentage: discountPercentage ?? this.discountPercentage,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
       reviews: reviews ?? this.reviews,
       stockLeft: stockLeft ?? this.stockLeft,
       isFastDelivery: isFastDelivery ?? this.isFastDelivery,
+      freeDelivery: freeDelivery ?? this.freeDelivery,
       isBestSeller: isBestSeller ?? this.isBestSeller,
     );
   }
